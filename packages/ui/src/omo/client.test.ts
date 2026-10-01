@@ -114,6 +114,32 @@ describe('native HTTP/SSE client', () => {
     expect(cancellations).toBe(1);
   });
 
+  test('deliberate close resolves after a real HTTP stream abort', async () => {
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      response.write(': ready\n\n');
+    });
+    const listening = once(server, 'listening');
+    server.listen(0, '127.0.0.1');
+    await listening;
+    const { port } = z.object({ port: z.number().int() }).parse(server.address());
+    const client = createNativeClient({
+      fetch: (route, init) => fetch(`http://127.0.0.1:${port}${route}`, init),
+    });
+    const subscription = client.subscribe('owned', () => assert.fail('Heartbeat was published'));
+    try {
+      await subscription.ready;
+      subscription.close();
+      await subscription.done;
+    } finally {
+      subscription.close();
+      const closed = once(server, 'close');
+      server.close();
+      server.closeAllConnections();
+      await closed;
+    }
+  });
+
   test('rejects malformed stream data and cross-session events and releases both readers', async () => {
     for (const data of [
       '{"type":"native","sessionKey":"a","connectionEpoch":1,"revision":1,"event":{"type":"message_update","assistantMessageEvent":{"type":"text_delta","contentIndex":-1,"delta":"x"}}}',

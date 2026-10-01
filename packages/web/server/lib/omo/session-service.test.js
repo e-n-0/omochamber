@@ -37,6 +37,27 @@ async function execute(f, snapshot, command, requestId = command.type) {
 }
 
 describe('native session ownership and hydration', () => {
+  test('recovers persisted messages after native configuration entries without append events', async () => {
+    const f = await fixture();
+    const snapshot = await f.attach();
+    const thinkingEntry = {
+      type: 'thinking_level_change', id: 'quiet-thinking', parentId: f.history.leafId,
+      timestamp: '2026-10-01T00:00:01Z', thinkingLevel: 'low',
+    };
+    const userEntry = {
+      ...entry('user-after-thinking', thinkingEntry.id, 'USER_AFTER_THINKING'),
+      message: { role: 'user', content: 'USER_AFTER_THINKING', timestamp: 2 },
+    };
+    f.history.entries.push(thinkingEntry, userEntry);
+    f.history.leafId = userEntry.id;
+    await f.persistHistory();
+    const recovered = nextSessionEvent(f.service, snapshot.sessionKey, event =>
+      event.type === 'snapshot' && event.snapshot.activeBranch.leafId === userEntry.id);
+    f.event({ type: 'entry_appended', entry: userEntry });
+    const result = await recovered;
+    expect(result.snapshot.activeBranch.entries.slice(-2)).toEqual([thinkingEntry, userEntry]);
+  });
+
   test('computer audit sidecars do not block live or persisted conversation inventory', async () => {
     const f = await fixture();
     const sessions = await f.service.listSessions({});

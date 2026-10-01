@@ -108,7 +108,13 @@ export function createNativeClient(options: NativeClientOptions = {}) {
     const ready = opened.then(() => undefined);
     const done = (async () => {
       let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
-      const cancel = () => { void reader?.cancel(); };
+      let cancellation: Promise<void> | undefined;
+      let streamError: NativeClientError | undefined;
+      const cancel = () => {
+        cancellation = reader?.cancel();
+        // Observe immediately; the original promise is awaited during cleanup.
+        void cancellation?.catch(() => undefined);
+      };
       try {
         reader = await opened;
         combined.addEventListener('abort', cancel, { once: true });
@@ -141,15 +147,20 @@ export function createNativeClient(options: NativeClientOptions = {}) {
           }
         }
       } catch (cause) {
-        if (combined.aborted) return;
-        const error = cause instanceof NativeClientError ? cause
-          : new NativeClientError('invalid-response', 'Native event stream failed', null, { cause });
-        throw error;
+        if (!combined.aborted) {
+          streamError = cause instanceof NativeClientError ? cause
+            : new NativeClientError('invalid-response', 'Native event stream failed', null, { cause });
+        }
+      }
+      combined.removeEventListener('abort', cancel);
+      try {
+        await (cancellation ?? reader?.cancel());
+      } catch (cause) {
+        if (!combined.aborted || !(cause instanceof DOMException) || cause.name !== 'AbortError') throw streamError ?? cause;
       } finally {
-        combined.removeEventListener('abort', cancel);
-        await reader?.cancel();
         reader?.releaseLock();
       }
+      if (streamError) throw streamError;
     })();
     // Consumers still receive the rejected promises, but subscription creation
     // cannot cause an unhandled rejection before they install both observers.

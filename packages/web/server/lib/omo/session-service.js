@@ -477,7 +477,33 @@ export function createSessionService({
         updateBranch(binding, [...binding.nativeEntries, raw.entry], raw.entry.id);
         void binding.reader?.read({ entries: binding.nativeEntries, leafId: binding.branchLeaf });
       } catch {
-        publish(binding, 'connection', { connection: binding.connection, reason: 'history_incomplete' });
+        const generation = binding.generation;
+        let recovery = binding.historyRecovery;
+        if (recovery?.generation === generation) {
+          recovery.entries.set(raw.entry.id, raw.entry);
+        } else {
+          recovery = { generation, entries: new Map([[raw.entry.id, raw.entry]]) };
+          binding.historyRecovery = recovery;
+          void (async () => {
+            try {
+              // Native configuration writes need not emit entry_appended.
+              // Recover the missing ancestry from the owning host, not guesses.
+              const history = await rpc(binding, { type: 'get_entries' });
+              if (closed || binding.generation !== recovery.generation) return;
+              const known = new Set(history.entries.map((entry) => entry.id));
+              const pending = [...recovery.entries.values()].filter((entry) => !known.has(entry.id));
+              updateBranch(binding, [...history.entries, ...pending], pending.at(-1)?.id ?? history.leafId);
+              void binding.reader?.read({ entries: binding.nativeEntries, leafId: binding.branchLeaf });
+              publish(binding, 'snapshot', { snapshot: snapshot(binding) });
+            } catch {
+              if (!closed && binding.generation === recovery.generation) {
+                publish(binding, 'connection', { connection: binding.connection, reason: 'history_incomplete' });
+              }
+            } finally {
+              if (binding.historyRecovery === recovery) binding.historyRecovery = undefined;
+            }
+          })();
+        }
         return;
       }
     }

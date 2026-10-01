@@ -15,7 +15,7 @@ async function pick(selector: string, index: number) {
   await act(async () => option.click());
 }
 
-test('model and thinking commands use native identities and selected values wait for native events', async () => {
+test('model commands use native identities and selected values wait for native events', async () => {
   const h = nativeHarness();
   await h.select();
   const view = await mount(<NativeChat client={h.client} store={h.store} sessionKey="chat-a" />);
@@ -26,11 +26,57 @@ test('model and thinking commands use native identities and selected values wait
     await h.result(h.commands[0].requestId);
     await h.native({ type: 'model_changed', model: { provider: 'provider-b', id: 'model-b' }, thinkingLevel: 'medium' });
     expect(view.host.querySelector('[data-testid="omo-model"]')?.textContent).toContain('Model B');
-    await pick('[data-testid="omo-thinking"]', 1);
-    expect(h.commands[1].command).toEqual({ type: 'setThinking', level: 'high' });
-    expect(h.store.getState().sessions.get('chat-a')?.snapshot?.state.thinkingLevel).toBe('medium');
-    await h.native({ type: 'model_changed', model: { provider: 'provider-b', id: 'model-b' }, thinkingLevel: 'high' });
-    expect(h.store.getState().sessions.get('chat-a')?.snapshot?.state.thinkingLevel).toBe('high');
+  } finally { await view.cleanup(); await h.cleanup(); }
+});
+
+test('selecting Low thinking replaces High only after the authoritative correlated native result', async () => {
+  const snapshot = nativeSnapshot();
+  snapshot.state.thinkingLevel = 'high';
+  snapshot.state.availableThinkingLevels = ['low', 'high'];
+  const h = nativeHarness(snapshot);
+  const subscribe = h.client.subscribe;
+  h.client.subscribe = (key, listener, signal) => subscribe(key, (event) => {
+    // set_thinking_level acknowledges without data. The backend reads get_state
+    // and supplies thinkingLevel in commandResult, not a model_changed event.
+    listener(event.type === 'commandResult' && event.result.success
+      ? { ...event, result: { ...event.result, data: { thinkingLevel: 'low' } } }
+      : event);
+  }, signal);
+  await h.select();
+  const view = await mount(<NativeChat client={h.client} store={h.store} sessionKey="chat-a" />);
+  try {
+    await pick('[data-testid="omo-thinking"]', 0);
+    const command = h.commands[0];
+    assert(command);
+    expect(command.command).toEqual({ type: 'setThinking', level: 'low' });
+    expect(view.host.querySelector('[data-testid="omo-thinking"]')?.textContent).toBe('High');
+    expect(h.store.getState().sessions.get('chat-a')?.mutations.get(command.requestId)?.status).toBe('accepted');
+    await h.result(command.requestId);
+    expect(h.store.getState().sessions.get('chat-a')?.mutations.get(command.requestId)).toMatchObject({
+      status: 'succeeded', result: { data: { thinkingLevel: 'low' } },
+    });
+    expect(view.host.querySelector('[data-testid="omo-thinking"]')?.textContent).toBe('Low');
+    expect(h.store.getState().sessions.get('chat-a')?.snapshot?.state.model).toEqual(snapshot.state.model);
+    expect(h.store.getState().sessions.get('chat-a')?.snapshot?.state.thinkingLevel).toBe('low');
+  } finally { await view.cleanup(); await h.cleanup(); }
+});
+
+test('a native thinking refusal preserves High and the selected model', async () => {
+  const snapshot = nativeSnapshot();
+  snapshot.state.thinkingLevel = 'high';
+  snapshot.state.availableThinkingLevels = ['low', 'high'];
+  const h = nativeHarness(snapshot);
+  await h.select();
+  const view = await mount(<NativeChat client={h.client} store={h.store} sessionKey="chat-a" />);
+  try {
+    await pick('[data-testid="omo-thinking"]', 0);
+    const command = h.commands[0];
+    assert(command);
+    expect(command.command).toEqual({ type: 'setThinking', level: 'low' });
+    await h.result(command.requestId, false);
+    expect(view.host.querySelector('[data-mutation-status="failed"]')).not.toBeNull();
+    expect(view.host.querySelector('[data-testid="omo-thinking"]')?.textContent).toBe('High');
+    expect(h.store.getState().sessions.get('chat-a')?.snapshot?.state.model).toEqual(snapshot.state.model);
   } finally { await view.cleanup(); await h.cleanup(); }
 });
 

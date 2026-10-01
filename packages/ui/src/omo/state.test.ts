@@ -330,6 +330,39 @@ describe('native state lifecycle through HTTP/SSE', () => {
     } finally { await h.store.dispose(); }
   });
 
+  test('preserves live text through partial snapshots and reconciles its persisted snapshot once', async () => {
+    const h = wireHarness();
+    try {
+      await h.store.selectSession('a');
+      const streamed = untilState(h.store, () => session(h.store).snapshot?.revision === 4);
+      h.native(2, { type: 'agent_start' });
+      h.native(3, { type: 'message_start', message: { role: 'assistant', content: [], timestamp: 2 } });
+      h.native(4, { type: 'message_update', assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'Kept text' } });
+      await streamed;
+      const partial = snapshotFixture('a', 5);
+      partial.state.isStreaming = true;
+      const partialCommitted = untilState(h.store, () => session(h.store).snapshot?.revision === 5);
+      h.emit({ type: 'snapshot', sessionKey: 'a', connectionEpoch: 1, revision: 5, snapshot: partial });
+      await partialCommitted;
+      expect(session(h.store).liveContent).toEqual([{ type: 'text', text: 'Kept text' }]);
+
+      const complete = snapshotFixture('a', 6);
+      complete.state.isStreaming = true;
+      complete.activeBranch.entries.push({
+        type: 'message', id: 'persisted-assistant', parentId: 'root', timestamp: '2026-09-30T00:00:01Z',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'Kept text' }], timestamp: 2 },
+      });
+      complete.activeBranch.leafId = 'persisted-assistant';
+      const reconciled = untilState(h.store, () => session(h.store).snapshot?.revision === 6);
+      h.emit({ type: 'snapshot', sessionKey: 'a', connectionEpoch: 1, revision: 6, snapshot: complete });
+      await reconciled;
+      expect(session(h.store).liveMessage).toBeNull();
+      expect(session(h.store).liveContent).toEqual([]);
+      expect(session(h.store).snapshot?.activeBranch.entries.filter(entry => entry.type === 'message' &&
+        entry.message.role === 'assistant')).toHaveLength(1);
+    } finally { await h.store.dispose(); }
+  });
+
   test('does not mark a low-level agent end idle or erase another session’s state', async () => {
     const h = wireHarness();
     try {

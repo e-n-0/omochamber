@@ -67,7 +67,7 @@ Commands carry `requestId`, `connectionEpoch` and a discriminated command. Stale
 
 Subscribe before hydration and buffer attach-time events. Each event carries the session key, epoch and monotonic revision. SSE opens with a fresh snapshot even when a client supplies `Last-Event-ID`, because native replay has no durable cursor guarantee. Slow clients disconnect and resnapshot rather than silently lose deltas.
 
-`get_entries` supplies append-order inventory plus the active leaf. Follow `parentId` to the root and reverse it for linear history and todo recovery. Missing ancestry is incomplete, not a guessed branch. The product has no branch navigation, rollback, history migration or second engine.
+`get_entries` supplies append-order inventory plus the active leaf. Follow `parentId` to the root and reverse it for linear history and todo recovery. Native configuration writes can omit append events. When a subsequent entry exposes missing ancestry, coalesce an owning-host history read and publish the recovered snapshot. Reject obsolete ownership generations and preserve the previous branch if recovery fails. Remaining missing ancestry is incomplete, not a guessed branch. The product has no branch navigation, rollback, history migration or second engine.
 
 Pending native select/confirm/input/editor/question interactions remain in the adapter across browser reconnect. After native transport or adapter loss, generic connection-bound dialogs aren't fabricated; native questions can recover from `get_state`. A response must match the pending interaction and can be submitted once.
 

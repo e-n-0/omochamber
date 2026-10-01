@@ -299,7 +299,11 @@ export function createNativeStore(options: NativeStoreOptions = {}) {
       ...(state.sessions.get(owner.key) ?? session), status: snapshot.connection === 'connected' ? 'ready' : snapshot.connection,
       error: null, snapshot: preserveProjections(previous, snapshot),
     };
-    if (previous?.connectionEpoch !== snapshot.connectionEpoch || !snapshot.state.isStreaming) {
+    const liveMessage = next.liveMessage;
+    const persistedLive = liveMessage && snapshot.activeBranch.entries.some(entry =>
+      entry.type === 'message' && entry.message.role === liveMessage.role &&
+      entry.message.timestamp === liveMessage.timestamp);
+    if (previous?.connectionEpoch !== snapshot.connectionEpoch || !snapshot.state.isStreaming || persistedLive) {
       next = { ...next, liveMessage: null, liveContent: [], toolArguments: new Map() };
     }
     publish(owner.key, next);
@@ -314,10 +318,12 @@ export function createNativeStore(options: NativeStoreOptions = {}) {
       void refresh(owner); // Only snapshots may establish a new epoch.
       return;
     }
+    let correlatedResult = false;
     if (event.type === 'commandResult') {
       const mutation = session.mutations.get(event.result.requestId);
       if (mutation && mutation.connectionEpoch === event.connectionEpoch &&
         mutation.status !== 'succeeded' && mutation.status !== 'failed') {
+        correlatedResult = true;
         publish(owner.key, { ...session, mutations: new Map(session.mutations).set(event.result.requestId,
           event.result.success ? { ...mutation, status: 'succeeded', result: event.result }
             : { ...mutation, status: 'failed', error: new NativeClientError('http', event.result.error) }),
@@ -344,7 +350,13 @@ export function createNativeStore(options: NativeStoreOptions = {}) {
           status: event.connection === 'connected' ? (reconnected ? 'reconnecting' : 'ready') : event.connection,
         };
         break;
-      case 'commandResult': break;
+      case 'commandResult':
+        if (correlatedResult && event.result.success && event.result.data?.thinkingLevel !== undefined) {
+          session = { ...session, snapshot: {
+            ...session.snapshot, state: { ...session.snapshot.state, thinkingLevel: event.result.data.thinkingLevel },
+          } };
+        }
+        break;
       default: event satisfies never;
     }
     if (!session.snapshot) return;
