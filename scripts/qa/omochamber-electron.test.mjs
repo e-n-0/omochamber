@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
+import path from 'node:path';
 import { test } from 'node:test';
 import { matchingLine, parseDesktopQaArgs } from './omochamber-electron.mjs';
 
@@ -9,9 +10,16 @@ test('desktop QA accepts only scoped modes and records capture opt-out explicitl
   assert.equal(options.mode, 'bundled');
   assert.equal(options.manualPickers, true);
   assert.equal(options.skipOsCapture, true);
+  assert.equal(options.electronBinary, null);
   assert(options.evidenceDir.endsWith('/product/desktop/bundled'));
   assert.throws(() => parseDesktopQaArgs(['--mode', 'remote']));
   assert.throws(() => parseDesktopQaArgs(['--allow-provider-prompts']));
+});
+
+test('desktop QA records an explicitly selected owned Electron executable', () => {
+  const binary = path.resolve('.tmp/omochamber-evidence/parent-desktop/full-signed-copy/Electron.app/Contents/MacOS/Electron');
+  const options = parseDesktopQaArgs(['--electron-binary', binary]);
+  assert.equal(options.electronBinary, binary);
 });
 
 test('readiness listener handles split records without elapsed-time polling', async () => {

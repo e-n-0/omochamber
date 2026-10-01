@@ -70,10 +70,9 @@ Profiles default to `OmoChamber Dev` in development and `OmoChamber` when packag
 
 The October 1, 2026 desktop evidence records actual installed-Electron launches in HMR and staged modes, loaded native UI, an in-process native handle, PTY cleanup and foreign-frame IPC refusal. Those checks don't establish full OS or release support.
 
-Actual HMR OS screenshots, native folder/file selection and OS open/reveal actions have been verified.
-The test's Finder window, backend, PTY, HMR server and temporary profile were cleaned up.
-Bundled-mode OS checks and successful notification display remain unverified.
-Notification attempts still fail with `UNErrorDomain error 1`.
+Actual HMR and staged-mode OS screenshots, native folder/file selection, open/reveal actions and notification display were verified on October 1, 2026 using an owned signed Electron QA copy. Notification checks received the OS `show` event. The installed Electron and OMO/Senpi runtimes were not modified.
+
+Both runs closed their owned Finder window, backend, PTY and temporary profile. HMR also closed its Vite server. Existing native hosts remained alive after quit. These results do not establish notification delivery from an unsigned development app or installer release support.
 
 All five bridge methods now have UI consumers. Unit checks and HTTP/SSE/preload fixtures cover their integration at desktop and responsive widths. Fixture captures and successful fixture notification replies don't establish native OS window, picker or notification proof.
 

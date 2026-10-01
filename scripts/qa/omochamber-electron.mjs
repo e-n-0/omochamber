@@ -22,6 +22,7 @@ export function parseDesktopQaArgs(argv) {
   const { values } = parseArgs({ args: argv, strict: true, options: {
     mode: { type: 'string', default: 'hmr' },
     'evidence-dir': { type: 'string' },
+    'electron-binary': { type: 'string' },
     'manual-pickers': { type: 'boolean', default: false },
     'skip-os-capture': { type: 'boolean', default: false },
     help: { type: 'boolean', default: false },
@@ -29,6 +30,7 @@ export function parseDesktopQaArgs(argv) {
   const mode = z.enum(['hmr', 'bundled']).parse(values.mode);
   return {
     mode, evidenceDir: path.resolve(repository, values['evidence-dir'] ?? `.tmp/omochamber-evidence/product/desktop/${mode}`),
+    electronBinary: values['electron-binary'] ? path.resolve(repository, values['electron-binary']) : null,
     manualPickers: values['manual-pickers'], skipOsCapture: values['skip-os-capture'], help: values.help,
   };
 }
@@ -165,7 +167,7 @@ async function terminalPid(origin, sessionId) {
 export async function runDesktopQa(argv = process.argv.slice(2)) {
   const options = parseDesktopQaArgs(argv);
   if (options.help) {
-    console.log('node scripts/qa/omochamber-electron.mjs --mode hmr|bundled [--manual-pickers] [--skip-os-capture] [--evidence-dir path]');
+    console.log('node scripts/qa/omochamber-electron.mjs --mode hmr|bundled [--manual-pickers] [--skip-os-capture] [--evidence-dir path] [--electron-binary path]');
     return;
   }
   const evidence = { mode: options.mode, status: 'FAIL', startedAt: new Date().toISOString(),
@@ -195,8 +197,9 @@ export async function runDesktopQa(argv = process.argv.slice(2)) {
     hmr = options.mode === 'hmr' ? await startNativeVite(apiPort) : null;
     const entry = path.join(repository, 'packages/electron',
       options.mode === 'hmr' ? 'omo/entry.mjs' : 'dist-bundle/omo/entry.mjs');
-    evidence.resources = { profile, workspace, uiPort: hmr?.vite.httpServer.address().port ?? null, hostPids: hosts };
-    child = spawn(requireElectron('electron'), [entry, '--inspect=127.0.0.1:0'], {
+    const electronBinary = options.electronBinary ?? requireElectron('electron');
+    evidence.resources = { profile, workspace, electronBinary, uiPort: hmr?.vite.httpServer.address().port ?? null, hostPids: hosts };
+    child = spawn(electronBinary, [entry, '--inspect=127.0.0.1:0'], {
       cwd: repository, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
       env: { ...process.env, ELECTRON_RUN_AS_NODE: '', OMOCHAMBER_DESKTOP_PORT: String(apiPort),
         OMOCHAMBER_UI_URL: hmr?.url ?? '', OMOCHAMBER_DESKTOP_BUNDLED: options.mode === 'bundled' ? '1' : '0',
@@ -344,7 +347,11 @@ export async function runDesktopQa(argv = process.argv.slice(2)) {
       console.log(`OMO_DESKTOP_QA_CLOSE_FINDER folder=${path.basename(workspace)}`);
       // The caller closes only the Finder window created for this fixture.
       evidence.resources.finderWindow = path.basename(workspace);
-      await matchingLine(process, process.stdin, /^FINDER_CLOSED\r?$/m, MANUAL_PICKER_DEADLINE_MS);
+      try {
+        await matchingLine(process, process.stdin, /^FINDER_CLOSED\r?$/m, MANUAL_PICKER_DEADLINE_MS);
+      } finally {
+        process.stdin.pause();
+      }
       evidence.cleanup.push({ resource: 'owned Finder window', confirmedClosed: true });
     } else evidence.blockers.push('Native folder/file picker QA requires --manual-pickers and exact owned OS dialog confirmation');
     const stopped = matchingLine(child, child.stdout, /OMO_DESKTOP_QA_SERVER_STOPPED/);
