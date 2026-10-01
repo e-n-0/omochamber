@@ -1,5 +1,3 @@
-import { OpenCode } from '@opencode/client';
-
 // A removal should not hang on an unresponsive OpenCode server: disposal is
 // best-effort and `removeWorktree` swallows its failure.
 const WORKTREE_INSTANCE_DISPOSE_TIMEOUT_MS = 5_000;
@@ -13,6 +11,7 @@ const WORKTREE_INSTANCE_DISPOSE_TIMEOUT_MS = 5_000;
  */
 const createWorktreeInstanceDisposer = ({ buildOpenCodeUrl, getOpenCodeAuthHeaders }) => {
   return async (worktreeDirectory) => {
+    const { OpenCode } = await import('@opencode/client');
     const client = OpenCode.make({
       baseUrl: buildOpenCodeUrl('/', '').replace(/\/$/, ''),
       headers: getOpenCodeAuthHeaders(),
