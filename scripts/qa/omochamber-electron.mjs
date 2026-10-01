@@ -261,15 +261,21 @@ export async function runDesktopQa(argv = process.argv.slice(2)) {
     assert.equal(evidence.checks.page.nativeApp, true);
     assert.equal(evidence.checks.page.node, 'undefined');
     assert.equal(evidence.checks.page.bridge.length, 5);
+    const request = (route, input) => renderer(`(async () => {
+      const response = await fetch(${JSON.stringify(route)}, ${JSON.stringify(input)});
+      const body = await response.json(); if (!response.ok) throw Error(JSON.stringify(body)); return body;
+    })()`);
+    evidence.checks.nativeStatus = await request('/api/omo/status');
+    assert.equal(evidence.checks.nativeStatus.available, true);
+    assert.equal(evidence.checks.nativeStatus.protocolVersion, 1);
+    const discoveredSessions = await request('/api/omo/sessions');
+    assert(Array.isArray(discoveredSessions));
+    evidence.checks.inventory = { rows: discoveredSessions.length };
     if (options.skipOsCapture) evidence.blockers.push('OS screenshot not captured: caller reports Screen Recording permission denied');
     else {
       try { evidence.captures.push(await captureOsWindow(child.pid, path.join(options.evidenceDir, 'native-window.png'))); }
       catch (error) { evidence.blockers.push(`OS screenshot: ${error.message}`); }
     }
-    const request = (route, input) => renderer(`(async () => {
-      const response = await fetch(${JSON.stringify(route)}, ${JSON.stringify(input)});
-      const body = await response.json(); if (!response.ok) throw Error(JSON.stringify(body)); return body;
-    })()`);
     const project = await request('/api/omo/projects', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: workspace }),
     });

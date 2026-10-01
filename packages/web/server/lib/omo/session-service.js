@@ -333,7 +333,7 @@ export function createSessionService({
     }
     for (const directory of directories.filter((entry) => entry.isDirectory())) {
       const base = path.join(sessionsDir, directory.name);
-      for (const filename of (await fs.readdir(base)).filter((file) => file.endsWith('.jsonl'))) {
+      for (const filename of (await fs.readdir(base)).filter((file) => file.endsWith('.jsonl') && file !== '.computer-audit.jsonl')) {
         const sessionPath = path.join(base, filename);
         const content = await fs.readFile(sessionPath, 'utf8');
         const lines = content.slice(0, content.lastIndexOf('\n') + 1).split('\n').filter(Boolean);

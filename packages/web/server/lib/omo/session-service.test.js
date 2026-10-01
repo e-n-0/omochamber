@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { once } from 'node:events';
 import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import {
   commandAcceptedSchema, commandResultSchema, hostViewSchema, sessionEventSchema,
   sessionSummarySchema, snapshotSchema, statusSchema, taskOutputSchema,
@@ -36,6 +37,29 @@ async function execute(f, snapshot, command, requestId = command.type) {
 }
 
 describe('native session ownership and hydration', () => {
+  test('computer audit sidecars do not block live or persisted conversation inventory', async () => {
+    const f = await fixture();
+    const sessions = await f.service.listSessions({});
+    const auditPath = path.join(path.dirname(f.sessionPath), '.computer-audit.jsonl');
+    const audit = `${JSON.stringify({ timestamp: '2026-10-01T18:52:11Z', action: 'screenshot', status: 'ok' })}\n`;
+    await writeFile(auditPath, audit);
+    expect(await f.service.listSessions({})).toEqual(sessions);
+    expect((await f.service.status()).available).toBe(true);
+    expect(await readFile(auditPath, 'utf8')).toBe(audit);
+  });
+
+  test('non-audit files with missing session headers remain failed inventory reads', async () => {
+    const f = await fixture();
+    await writeFile(path.join(path.dirname(f.sessionPath), 'not-a-session.jsonl'), '{"action":"screenshot"}\n');
+    await expect(f.service.listSessions({})).rejects.toMatchObject({ code: 'inventory_incomplete' });
+  });
+
+  test('malformed conversation records remain failed inventory reads', async () => {
+    const f = await fixture();
+    await writeFile(f.sessionPath, `${await readFile(f.sessionPath, 'utf8')}{broken\n`);
+    await expect(f.service.listSessions({})).rejects.toMatchObject({ code: 'inventory_incomplete' });
+  });
+
   test('inactive registrations do not block persisted history or unrelated directory ownership', async () => {
     const f = await fixture({
       discover: async () => [{

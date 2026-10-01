@@ -70,7 +70,10 @@ Profiles default to `OmoChamber Dev` in development and `OmoChamber` when packag
 
 The October 1, 2026 desktop evidence records actual installed-Electron launches in HMR and staged modes, loaded native UI, an in-process native handle, PTY cleanup and foreign-frame IPC refusal. Those checks don't establish full OS or release support.
 
-OS screenshots remain unverified while the running `senpi-desktop-engine` helper reports Screen Recording denial. Native picker confirmation and OS open/reveal actions remain unverified. Earlier notification attempts failed with `UNErrorDomain error 1`; successful OS display isn't claimed.
+Actual HMR OS screenshots, native folder/file selection and OS open/reveal actions have been verified.
+The test's Finder window, backend, PTY, HMR server and temporary profile were cleaned up.
+Bundled-mode OS checks and successful notification display remain unverified.
+Notification attempts still fail with `UNErrorDomain error 1`.
 
 All five bridge methods now have UI consumers. Unit checks and HTTP/SSE/preload fixtures cover their integration at desktop and responsive widths. Fixture captures and successful fixture notification replies don't establish native OS window, picker or notification proof.
 

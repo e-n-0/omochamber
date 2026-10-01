@@ -4,6 +4,10 @@ This directory owns the native runtime adapter for local web and Electron. `../.
 
 Read the [web README](../../../README.md) for runnable commands and the [UI documentation](../../../../ui/src/omo/DOCUMENTATION.md) for the application wire codec.
 
+Conversation inventory excludes the native `.computer-audit.jsonl` sidecar.
+It contains computer action receipts, not session headers or conversation entries.
+The adapter leaves that file untouched; unreadable or invalid conversation JSONL still fails the inventory read.
+
 ## Module ownership
 
 | Module and exports | Responsibility |
