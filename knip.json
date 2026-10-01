@@ -3,7 +3,7 @@
   "ignore": [
     "packages/mobile/android/app/src/main/assets/public/**",
     "packages/mobile/ios/App/App/public/**",
-    "packages/sdk/examples/**",
+    "packages/sdk/examples/**"
   ],
   "workspaces": {
     ".": {
@@ -29,6 +29,7 @@
     },
     "packages/web": {
       "entry": [
+        "src/omo-main.tsx",
         "src/mobile-main.tsx",
         "src/mini-chat-main.tsx",
         "src/main.tsx",

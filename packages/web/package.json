@@ -6,7 +6,7 @@
   "main": "./server/index.js",
   "types": "./server/index.d.ts",
   "bin": {
-    "openchamber": "./bin/cli.js"
+    "omochamber": "./bin/omochamber.js"
   },
   "publishConfig": {
     "access": "public"
@@ -15,13 +15,13 @@
     "dev": "bun run build:watch",
     "dev:server": "bun ../../scripts/build-builtin-extensions.mjs && OPENCHAMBER_RELAY_HOST=${OPENCHAMBER_RELAY_HOST:-off} bun server/index.js --port ${OPENCHAMBER_PORT:-3001}",
     "dev:server:watch": "bun ../../scripts/build-builtin-extensions.mjs && node ./scripts/dev-server-watch.mjs",
-    "build": "bun ../../scripts/build-builtin-extensions.mjs && NODE_OPTIONS=--max-old-space-size=6144 vite build",
+    "build": "node ../../scripts/run-product-tasks.mjs web-build",
     "build:watch": "bun ../../scripts/build-builtin-extensions.mjs && vite build --watch",
     "prepack": "bun ../../scripts/build-builtin-extensions.mjs",
     "type-check": "tsc --noEmit",
     "lint": "eslint \"./src/**/*.{ts,tsx}\" --config ../../eslint.config.js",
     "test": "vitest run",
-    "start": "node bin/cli.js serve"
+    "start": "bun bin/omochamber.js serve --ui-dir dist"
   },
   "dependencies": {
     "@clack/prompts": "^1.1.0",

@@ -1,57 +1,31 @@
-import type { Express } from "express";
-import type { Server } from "http";
+import type express from 'express';
+import type { Server } from 'node:http';
 
-export interface WebUiServerController {
-  expressApp: Express;
-  httpServer: Server;
-  getPort: () => number | null;
-  getOpenCodePort: () => number | null;
-  isReady: () => boolean;
-  getManagedOpenCodePreflight: () => Promise<boolean>;
-  restartOpenCode: () => Promise<void>;
-  stop: (options?: { exitProcess?: boolean }) => Promise<void>;
+/** In-process native lifecycle, also consumed by the local Electron shell. */
+export interface NativeServerHandle {
+  readonly runtime: 'omo';
+  readonly expressApp: ReturnType<typeof express>;
+  readonly httpServer: Server;
+  readonly getPort: () => number | null;
+  readonly isReady: () => boolean;
+  /** Idempotent; closes owned HTTP/PTYS and attachments, never retained hosts. */
+  readonly stop: () => Promise<void>;
 }
 
-export interface DesktopUpdateInfo {
-  available: boolean;
-  currentVersion?: string;
-  version?: string | null;
-  body?: string | null;
-  date?: string | null;
-}
-
-export interface DesktopUpdater {
-  check: () => Promise<DesktopUpdateInfo>;
-  install: () => Promise<DesktopUpdateInfo>;
-  restart: () => Promise<void> | void;
-}
+export type WebUiServerController = NativeServerHandle;
 
 export interface StartWebUiServerOptions {
-  port?: number;
-  host?: string;
-  attachSignals?: boolean;
-  exitOnShutdown?: boolean;
-  uiPassword?: string | null;
-  desktopUpdater?: DesktopUpdater;
-  /** App-owned built-in resources outside Electron's ASAR archive. */
-  builtInExtensionsDir?: string;
+  readonly port?: number;
+  readonly host?: string;
+  readonly dataDir?: string;
+  /** Defaults to the web package's dist directory. */
+  readonly uiDirectory?: string;
+  readonly uiPassword?: string | null;
+  readonly runtimeOptions?: {
+    readonly omoBinary?: string;
+    readonly bunBinary?: string;
+    readonly agentDir?: string;
+  };
 }
 
-export declare function startWebUiServer(
-  options?: StartWebUiServerOptions
-): Promise<WebUiServerController>;
-
-export declare function gracefulShutdown(options?: { exitProcess?: boolean }): Promise<void>;
-export declare function setupProxy(app: Express): void;
-export declare function restartOpenCode(): Promise<void>;
-export declare function parseArgs(argv?: string[]): {
-  port: number;
-  host?: string;
-  uiPassword: string | null;
-  tryCfTunnel: boolean;
-  tunnelProvider?: string;
-  tunnelMode?: string;
-  tunnelConfigPath?: string | null;
-  tunnelToken?: string;
-  tunnelHostname?: string;
-};
+export declare function startWebUiServer(options?: StartWebUiServerOptions): Promise<NativeServerHandle>;

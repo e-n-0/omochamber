@@ -121,16 +121,12 @@ const api = run(
   'api',
   bunExecutable,
   [
-    'run',
-    '--cwd',
-    'packages/web',
-    'dev:server:watch',
+    'packages/web/bin/omochamber.js',
+    '--port',
+    backendPort,
   ],
   {
-    OPENCHAMBER_PORT: backendPort,
-    // Dev backends share the relay identity with the production instance; never
-    // let them capture the machine's relay host on their own.
-    OPENCHAMBER_RELAY_HOST: process.env.OPENCHAMBER_RELAY_HOST || 'off',
+    OMOCHAMBER_PORT: backendPort,
   },
 );
 const vite = run(
@@ -138,8 +134,7 @@ const vite = run(
   bunExecutable,
   ['x', 'vite', '--force', '--host', hmrHost, '--port', uiPort, '--strictPort'],
   {
-    OPENCHAMBER_PORT: backendPort,
-    OPENCHAMBER_DISABLE_PWA_DEV: '1',
+    OMOCHAMBER_PORT: backendPort,
   },
   { cwd: webRoot },
 );

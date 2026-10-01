@@ -3,39 +3,14 @@ import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
-import { VitePWA } from 'vite-plugin-pwa';
 import { themeStoragePlugin } from '../../vite-theme-plugin';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'));
-const pwaDevEnabled = process.env.OPENCHAMBER_DISABLE_PWA_DEV !== '1';
+const backendUrl = process.env.OMOCHAMBER_API_URL
+  || `http://127.0.0.1:${process.env.OMOCHAMBER_PORT || process.env.OPENCHAMBER_PORT || 3001}`;
 const reactScanToggle = (process.env.VITE_ENABLE_REACT_SCAN ?? '').toLowerCase();
 const enableReactScan = reactScanToggle === '1' || reactScanToggle === 'true' || reactScanToggle === 'on' || reactScanToggle === 'yes';
-const themeDirectory = path.resolve(__dirname, '../ui/src/lib/theme/themes');
-
-const themeJsonHmrPlugin = () => ({
-  name: 'openchamber-theme-json-hmr',
-  handleHotUpdate({ file, server }: { file: string; server: { ws: { send: (payload: unknown) => void } } }) {
-    if (!file.startsWith(`${themeDirectory}${path.sep}`) || path.extname(file) !== '.json') {
-      return;
-    }
-
-    try {
-      server.ws.send({
-        type: 'custom',
-        event: 'openchamber:theme-updated',
-        data: JSON.parse(readFileSync(file, 'utf-8')),
-      });
-      // Theme JSON is applied by the runtime event listener. Returning no
-      // modules prevents Vite's otherwise unavoidable page-reload fallback.
-      return [];
-    } catch {
-      // Leave the previous valid theme active while an editor writes invalid
-      // or incomplete JSON; the next valid save will replace it.
-      return [];
-    }
-  },
-});
 
 export default defineConfig({
   root: path.resolve(__dirname, '.'),
@@ -64,26 +39,6 @@ export default defineConfig({
       },
     },
     themeStoragePlugin(),
-    themeJsonHmrPlugin(),
-    VitePWA({
-      strategies: 'injectManifest',
-      srcDir: 'src',
-      filename: 'sw.ts',
-      registerType: 'autoUpdate',
-      injectRegister: false,
-      manifest: false,
-      injectManifest: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,otf,eot,wasm}'],
-        // iOS Safari/PWA is much more reliable with a classic (non-module) SW bundle.
-        rollupFormat: 'iife',
-        // We already keep a custom manifest in index.html
-        injectionPoint: undefined,
-      },
-      devOptions: {
-        enabled: pwaDevEnabled,
-        type: 'module',
-      },
-    }),
   ],
   resolve: {
     alias: [
@@ -102,27 +57,21 @@ export default defineConfig({
     global: 'globalThis',
     __APP_VERSION__: JSON.stringify(packageJson.version),
   },
-  optimizeDeps: {
-    include: ['@opencode/client'],
-  },
   server: {
     port: 5173,
     proxy: {
       '/auth': {
-        target: `http://127.0.0.1:${process.env.OPENCHAMBER_PORT || 3001}`,
-        changeOrigin: true,
+        target: backendUrl,
+        changeOrigin: false,
       },
       '/health': {
-        target: `http://127.0.0.1:${process.env.OPENCHAMBER_PORT || 3001}`,
-        changeOrigin: true,
-      },
-      '/linear': {
-        target: `http://127.0.0.1:${process.env.OPENCHAMBER_PORT || 3001}`,
-        changeOrigin: true,
+        target: backendUrl,
+        changeOrigin: false,
       },
       '/api': {
-        target: `http://127.0.0.1:${process.env.OPENCHAMBER_PORT || 3001}`,
-        changeOrigin: true,
+        target: backendUrl,
+        // Preserve browser Host/Origin and the port-scoped native auth cookie.
+        changeOrigin: false,
         ws: true,
       },
     },
@@ -134,8 +83,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
-        mobile: path.resolve(__dirname, 'mobile.html'),
-        miniChat: path.resolve(__dirname, 'mini-chat.html'),
       },
       external: ['node:child_process', 'node:fs', 'node:path', 'node:url'],
       output: {

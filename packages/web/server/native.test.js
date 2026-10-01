@@ -7,7 +7,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { WebSocket } from 'ws';
-import { startWebUiServer } from './native.js';
+import { startWebUiServer } from './index.js';
 import { createNativeSettings } from './lib/omo/settings.js';
 import { createFoundationFixture } from './lib/omo/session-service.fixtures.js';
 import { createTerminalWsControlFrame, readTerminalWsControlFrame } from './lib/terminal/terminal-ws-protocol.js';
@@ -22,7 +22,7 @@ async function fixture(options = {}) {
   const uiDirectory = path.join(native.root, 'ui');
   await fs.mkdir(uiDirectory);
   await fs.writeFile(path.join(uiDirectory, 'index.html'), '<!doctype html><title>OmoChamber fixture</title>');
-  const f = { native, dataDir, project, settings, server: null };
+  const f = { native, dataDir, project, settings, uiDirectory, server: null };
   resources.push(f);
   f.server = await startWebUiServer({
     port: 0, runtime: native.runtime, service: native.service, settings, dataDir, uiDirectory,
@@ -199,7 +199,7 @@ describe('native server composition', () => {
     const f = await fixture();
     let closed = 0;
     await expect(startWebUiServer({
-      port: f.server.getPort(), dataDir: f.dataDir, settings: f.settings, runtime: f.native.runtime,
+      port: f.server.getPort(), dataDir: f.dataDir, settings: f.settings, runtime: f.native.runtime, uiDirectory: f.uiDirectory,
       service: { async close() { closed += 1; } },
     })).rejects.toMatchObject({ code: 'EADDRINUSE' });
     expect(closed).toBe(1);
@@ -213,10 +213,16 @@ describe('native server composition', () => {
         if (/@opencode\\/|\\/lib\\/(opencode|session-goal|scheduled-tasks)\\//.test(specifier)) throw new Error('Forbidden legacy import: ' + specifier);
         return next(specifier, context);
       }});
-      const native = await import('./server/native.js');
+      const before = {
+        signals: process.listenerCount('SIGINT') + process.listenerCount('SIGTERM'),
+        timeout: (await import('node:net')).default.getDefaultAutoSelectFamilyAttemptTimeout(),
+      };
+      const native = await import('./server/index.js');
       const cli = await import('./bin/omochamber.js');
       const result = await cli.runNativeCli(['--help','--json']);
       if (typeof native.startWebUiServer !== 'function' || result.exitCode !== 0) process.exitCode = 1;
+      if (process.listenerCount('SIGINT') + process.listenerCount('SIGTERM') !== before.signals) process.exitCode = 1;
+      if ((await import('node:net')).default.getDefaultAutoSelectFamilyAttemptTimeout() !== before.timeout) process.exitCode = 1;
     `;
     const result = await run(process.execPath, ['--input-type=module', '-e', script], { cwd: path.resolve(import.meta.dirname, '..') });
     expect(JSON.parse(result.stdout).status).toBe('ok');

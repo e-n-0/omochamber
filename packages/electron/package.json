@@ -2,10 +2,10 @@
   "name": "@openchamber/electron",
   "version": "2.0.4",
   "private": true,
-  "description": "Electron desktop runtime for OpenChamber",
+  "description": "Local Electron desktop runtime for OmoChamber",
   "author": "OpenChamber",
   "type": "module",
-  "main": "./dist-bundle/entry.mjs",
+  "main": "./dist-bundle/omo/entry.mjs",
   "opencodeCli": {
     "version": "2.0.18"
   },
@@ -27,15 +27,19 @@
   ],
   "desktopPrerequisites": [
     "Electron runtime dependencies installed via bun install",
-    "Bun available for sidecar compilation",
+    "Existing installed OMO and Senpi runtime, with Bun available on PATH",
     "macOS: Xcode + build tools for notarized packaging",
     "Windows: NSIS installed for installer creation",
     "Linux: native x64 or arm64 host (no cross-arch packaging); FUSE/libfuse2 to run AppImages, or APPIMAGE_EXTRACT_AND_RUN=1"
   ],
   "scripts": {
-    "dev": "bun ../../scripts/build-builtin-extensions.mjs && node ./scripts/electron-dev.mjs",
+    "dev": "bun run native:dev",
+    "native:dev": "node ./scripts/native-dev.mjs",
+    "native:dev:bundled": "bun run native:bundle && node ./scripts/native-dev.mjs --bundled",
+    "native:bundle": "bun ./scripts/native-bundle.mjs",
+    "native:build": "bun run native:bundle",
     "build:web-assets": "node ./scripts/build-web-assets.mjs",
-    "build": "bun -e \"process.exit(0)\"",
+    "build": "bun run native:build",
     "ensure:electron": "node ./scripts/ensure-electron.mjs",
     "prepare:opencode-cli": "node ./scripts/prepare-opencode-cli.mjs",
     "verify:opencode-cli": "node ./scripts/verify-opencode-cli.mjs --staged",
@@ -50,26 +54,22 @@
     "test:linux-desktop": "node --test ./linux-autostart.test.mjs && node ./scripts/smoke-linux-app-discovery.mjs && node ./scripts/smoke-path-open-utils.mjs",
     "updater:e2e:fixture": "node ./scripts/updater-e2e-fixture.mjs",
     "verify:update-manifest": "node ./scripts/verify-update-manifest.mjs",
-    "package": "bun run build:web-assets && bun run prepare:opencode-cli && bun run bundle:main && bun run rebuild:native && node ./scripts/package.mjs",
+    "package": "bun run native:build && electron-builder",
     "finalize:latest-yml": "node ./scripts/finalize-latest-yml.mjs",
-    "type-check": "node --check ./entry.mjs && node --check ./early-startup.mjs && node --check ./main.mjs && node --check ./preload.mjs",
-    "lint": "node -e \"process.exit(0)\""
+    "type-check": "node --check ./omo/entry.mjs && node --check ./omo/main.mjs && node --check ./omo/preload.mjs && node --check ./scripts/native-dev.mjs && node --check ./scripts/native-bundle.mjs",
+    "lint": "oxlint ./omo ./scripts/native-*.mjs"
   },
   "build": {
-    "appId": "dev.openchamber.desktop",
-    "productName": "OpenChamber",
-    "asarUnpack": [
-      "node_modules/@openchamber/web/server/built-in-extensions/**/*"
-    ],
+    "appId": "dev.omochamber.desktop",
+    "productName": "OmoChamber",
     "files": [
-      "dist-bundle/entry.mjs",
-      "dist-bundle/main.mjs",
-      "dist-bundle/early-startup.mjs",
-      "preload.mjs"
+      "dist-bundle/omo/entry.mjs",
+      "dist-bundle/omo/main.mjs",
+      "dist-bundle/omo/preload.mjs"
     ],
     "extraResources": [
       {
-        "from": "resources/web-dist",
+        "from": "dist-bundle/omo/web-dist",
         "to": "web-dist"
       },
       {
@@ -83,13 +83,8 @@
       {
         "from": "resources/icons/tray",
         "to": "icons/tray"
-      },
-      {
-        "from": "resources/opencode-cli",
-        "to": "opencode-cli"
       }
     ],
-    "afterPack": "scripts/after-pack.cjs",
     "directories": {
       "buildResources": "resources/icons",
       "output": "dist"
@@ -100,10 +95,6 @@
       "category": "public.app-category.developer-tools",
       "icon": "resources/icons/icon.icns",
       "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
-      "extendInfo": {
-        "CFBundleIconName": "AppIcon",
-        "NSLocalNetworkUsageDescription": "OpenChamber needs access to devices and services on your local network."
-      },
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "resources/entitlements.mac.plist",
@@ -128,14 +119,14 @@
       ],
       "category": "Development",
       "icon": "resources/icons/app-icon.svg",
-      "executableName": "openchamber",
+      "executableName": "omochamber",
       "artifactName": "${productName}-${version}-linux-${arch}.${ext}",
       "desktop": {
         "entry": {
-          "Name": "OpenChamber",
-          "Comment": "Desktop runtime for OpenChamber",
+          "Name": "OmoChamber",
+          "Comment": "Local desktop runtime for OmoChamber",
           "Icon": "openchamber",
-          "StartupWMClass": "openchamber"
+          "StartupWMClass": "omochamber"
         }
       }
     },
@@ -169,11 +160,6 @@
           "path": "/Applications"
         }
       ]
-    },
-    "publish": {
-      "provider": "github",
-      "owner": "openchamber",
-      "repo": "openchamber"
     }
   }
 }

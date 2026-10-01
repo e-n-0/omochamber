@@ -6,7 +6,7 @@ import { applyConnectAttemptTimeout, CONNECT_ATTEMPT_TIMEOUT_MS } from './networ
 
 describe('applyConnectAttemptTimeout', () => {
   it('initializes the server entrypoint in a fresh Node process', () => {
-    const serverUrl = new URL('../index.js', import.meta.url).href;
+    const serverUrl = new URL('../legacy-opencode.js', import.meta.url).href;
     const result = spawnSync('node', ['--input-type=module', '--eval', `
       import net from 'node:net';
       import assert from 'node:assert/strict';

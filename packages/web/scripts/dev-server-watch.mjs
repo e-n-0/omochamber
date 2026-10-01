@@ -13,34 +13,33 @@ export function createDevServerWatchCommand(options = {}) {
   const platform = options.platform ?? process.platform;
   const env = options.env ?? process.env;
   const bunExecutable = options.bunExecutable ?? resolveBunExecutable({ env, platform });
-  const configuredPort = env.OPENCHAMBER_PORT?.trim();
+  const configuredPort = (env.OMOCHAMBER_PORT || env.OPENCHAMBER_PORT)?.trim();
   const port = configuredPort || '3001';
 
   if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) {
-    throw new Error(`Invalid OPENCHAMBER_PORT: ${port}`);
+    throw new Error(`Invalid native web port: ${port}`);
   }
 
   return {
     command: bunExecutable,
     args: platform === 'win32'
-      ? ['--watch', 'server/index.js', '--port', port]
+      ? ['--watch', 'bin/omochamber.js', '--port', port, '--ui-dir', 'dist']
       : [
           'x',
           'nodemon',
           '--watch',
           'server',
+          '--watch',
+          'bin/omochamber.js',
           '--ext',
           'js',
           '--exec',
-          `bun server/index.js --port ${port}`,
+          `bun bin/omochamber.js --port ${port} --ui-dir dist`,
         ],
     spawnOptions: {
       cwd: webRoot,
       stdio: 'inherit',
-      env: {
-        ...env,
-        OPENCHAMBER_RELAY_HOST: env.OPENCHAMBER_RELAY_HOST || 'off',
-      },
+      env: { ...env },
       windowsHide: true,
     },
   };

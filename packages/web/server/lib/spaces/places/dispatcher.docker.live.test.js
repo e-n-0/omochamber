@@ -20,7 +20,7 @@ import { createSpaceId, hashProjectDirectory } from '../labels.js';
 import { LIVE_DOCKER_ENABLED, createLiveDockerPlace } from './docker-live-support.js';
 
 const CREATE_TIMEOUT_MS = 25 * 60_000;
-const SERVER_ENTRY = fileURLToPath(new URL('../../../index.js', import.meta.url));
+const SERVER_ENTRY = fileURLToPath(new URL('../../../legacy-opencode.js', import.meta.url));
 
 const temporary = (prefix) => fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 

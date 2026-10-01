@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createDevServerWatchCommand } from './dev-server-watch.mjs';
 
 describe('createDevServerWatchCommand', () => {
-  it('uses the package default port and disables relay hosting by default', () => {
+  it('uses the native CLI and built assets on the package default port', () => {
     const command = createDevServerWatchCommand({
       platform: 'win32',
       env: {},
@@ -11,23 +11,21 @@ describe('createDevServerWatchCommand', () => {
     });
 
     expect(command.command).toBe('/opt/bun/bin/bun');
-    expect(command.args).toEqual(['--watch', 'server/index.js', '--port', '3001']);
-    expect(command.spawnOptions.env.OPENCHAMBER_RELAY_HOST).toBe('off');
+    expect(command.args).toEqual(['--watch', 'bin/omochamber.js', '--port', '3001', '--ui-dir', 'dist']);
     expect(command.spawnOptions.windowsHide).toBe(true);
   });
 
-  it('passes the configured port and relay host to the Bun watcher', () => {
+  it('prefers the native port over the old development variable', () => {
     const command = createDevServerWatchCommand({
       platform: 'win32',
       env: {
         OPENCHAMBER_PORT: '58992',
-        OPENCHAMBER_RELAY_HOST: 'relay.example.test',
+        OMOCHAMBER_PORT: '58993',
       },
       bunExecutable: 'C:\\Tools\\Bun\\bun.exe',
     });
 
-    expect(command.args).toEqual(['--watch', 'server/index.js', '--port', '58992']);
-    expect(command.spawnOptions.env.OPENCHAMBER_RELAY_HOST).toBe('relay.example.test');
+    expect(command.args).toEqual(['--watch', 'bin/omochamber.js', '--port', '58993', '--ui-dir', 'dist']);
   });
 
   it('rejects an invalid configured port before spawning', () => {
@@ -35,7 +33,7 @@ describe('createDevServerWatchCommand', () => {
       platform: 'win32',
       env: { OPENCHAMBER_PORT: 'not-a-port' },
       bunExecutable: 'bun',
-    })).toThrow(/Invalid OPENCHAMBER_PORT/);
+    })).toThrow(/Invalid native web port/);
   });
 
   it('preserves the nodemon watcher command outside Windows', () => {
@@ -51,10 +49,12 @@ describe('createDevServerWatchCommand', () => {
       'nodemon',
       '--watch',
       'server',
+      '--watch',
+      'bin/omochamber.js',
       '--ext',
       'js',
       '--exec',
-      'bun server/index.js --port 4200',
+      'bun bin/omochamber.js --port 4200 --ui-dir dist',
     ]);
   });
 });

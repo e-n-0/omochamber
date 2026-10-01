@@ -197,7 +197,7 @@ waitForFirstBuildSuccess(build)
       return;
     }
     console.log('[dev:web:full] Initial frontend build ready, starting API watcher...');
-    api = run('api', bunExecutable, ['run', '--cwd', 'packages/web', 'dev:server:watch']);
+    api = run('api', bunExecutable, ['packages/web/scripts/dev-server-watch.mjs']);
     api.on('exit', onChildExit('api'));
   })
   .catch((error) => {
