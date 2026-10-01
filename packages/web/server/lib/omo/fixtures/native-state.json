@@ -1,0 +1,211 @@
+{
+  "durableSessionId": "native-owner / α",
+  "goal": {
+    "version": 1,
+    "goal": {
+      "id": "goal-native",
+      "threadId": "native-owner / α",
+      "objective": "Finish the native fixture work",
+      "status": "active",
+      "tokensUsed": 34,
+      "timeUsedSeconds": 9,
+      "createdAt": 1790812800,
+      "updatedAt": 1790812809,
+      "lastStartedAt": 1790812800,
+      "consecutiveContinuations": 1,
+      "unattendedContinuations": 0,
+      "lastContinuationSignature": "private continuation metadata"
+    }
+  },
+  "tasks": [
+    {
+      "task_id": "st_00000001",
+      "parent_session_id": "native-owner / α",
+      "root_session_id": "native-root",
+      "depth": 1,
+      "status": "running",
+      "residency_state": "resident",
+      "execution_mode": "in-process",
+      "model": "fixture/model",
+      "name": "Reader",
+      "task_summary": "Read the native state",
+      "description": "Inspect the owning data",
+      "category": "deep-low",
+      "agent_type": "explore",
+      "child_session_id": "native-child",
+      "created_at": "2026-10-01T00:00:00.000Z",
+      "started_at": "2026-10-01T00:00:01.000Z",
+      "updated_at": "2026-10-01T00:00:02.000Z",
+      "notification": { "run_epoch": 2, "notified_epoch": 1 },
+      "host_session": {
+        "socket": "fixture-private-socket",
+        "routing_id": "fixture-private-handle",
+        "session_path": "fixture-private-transcript",
+        "instance_id": "fixture-private-instance"
+      },
+      "pending_steering": [{ "id": "private", "message": "private steering", "deliver_as": "steer" }],
+      "isolation": { "mode": "patch", "apply": false, "base_dir": "fixture-private-base" }
+    },
+    {
+      "task_id": "st_00000002",
+      "parent_session_id": "native-owner / α",
+      "root_session_id": "native-root",
+      "depth": 1,
+      "status": "completed",
+      "residency_state": "persisted_only",
+      "execution_mode": "in-process",
+      "model": "fixture/model",
+      "created_at": "2026-10-01T00:00:00.000Z",
+      "updated_at": "2026-10-01T00:00:03.000Z",
+      "terminal_at": "2026-10-01T00:00:03.000Z",
+      "notification": { "run_epoch": 1, "notified_epoch": 1 },
+      "final_response": "The fixture work is complete."
+    },
+    {
+      "task_id": "st_00000003",
+      "parent_session_id": "native-owner / α-foreign",
+      "root_session_id": "foreign-root",
+      "depth": 1,
+      "status": "running",
+      "residency_state": "rpc_detached",
+      "execution_mode": "in-process",
+      "model": "fixture/model",
+      "created_at": "2026-10-01T00:00:00.000Z",
+      "updated_at": "2026-10-01T00:00:03.000Z",
+      "notification": { "run_epoch": 1, "notified_epoch": 0 }
+    }
+  ],
+  "dag": {
+    "schemaVersion": 1,
+    "checkpointSeq": 2,
+    "runId": "dag_fixture",
+    "runKey": "fixture",
+    "name": "Native fixture DAG",
+    "parentSessionId": "native-owner / α",
+    "rootSessionId": "native-root",
+    "generation": 2,
+    "status": "running",
+    "createdAt": "2026-10-01T00:00:00.000Z",
+    "updatedAt": "2026-10-01T00:00:02.000Z",
+    "startedAt": "2026-10-01T00:00:01.000Z",
+    "definitionFingerprint": "native-fixture-fingerprint",
+    "definition": { "key": "fixture", "nodes": [{ "id": "read", "prompt": "Private execution prompt" }] },
+    "leaseHolderPid": 9876,
+    "nodes": [
+      {
+        "id": "read",
+        "label": "Read native state",
+        "prompt": "Private execution prompt",
+        "route": { "category": "deep-low" },
+        "dependsOn": [],
+        "state": "running",
+        "attempt": 1,
+        "taskId": "st_00000001",
+        "createdAt": "2026-10-01T00:00:00.000Z"
+      },
+      {
+        "id": "verify",
+        "prompt": "Private verification prompt",
+        "route": { "category": "deep-low" },
+        "dependsOn": ["read"],
+        "state": "blocked",
+        "attempt": 0,
+        "createdAt": "2026-10-01T00:00:00.000Z"
+      }
+    ],
+    "edges": [{ "from": "read", "to": "verify" }],
+    "waves": [{ "index": 0, "nodeIds": ["read"] }, { "index": 1, "nodeIds": ["verify"] }]
+  },
+  "journal": [
+    {
+      "schemaVersion": 1,
+      "runId": "dag_fixture",
+      "seq": 1,
+      "at": "2026-10-01T00:00:00.000Z",
+      "lane": "boundary",
+      "type": "dag.run.created",
+      "runKey": "fixture",
+      "name": "Native fixture DAG",
+      "definitionFingerprint": "native-fixture-fingerprint",
+      "nodeCount": 2,
+      "edgeCount": 1
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "dag_fixture",
+      "seq": 2,
+      "at": "2026-10-01T00:00:01.000Z",
+      "lane": "boundary",
+      "type": "dag.run.started"
+    }
+  ],
+  "entries": [
+    {
+      "id": "root",
+      "parentId": null,
+      "timestamp": "2026-10-01T00:00:00.000Z",
+      "type": "custom",
+      "customType": "fixture-root",
+      "data": {}
+    },
+    {
+      "id": "todo-initial",
+      "parentId": "root",
+      "timestamp": "2026-10-01T00:00:01.000Z",
+      "type": "custom",
+      "customType": "senpi.todo-state",
+      "data": { "schema": "v2", "phases": [{ "name": "Initial", "tasks": [{ "content": "Initial work", "status": "pending" }] }] }
+    },
+    {
+      "id": "todo-old-branch",
+      "parentId": "todo-initial",
+      "timestamp": "2026-10-01T00:00:02.000Z",
+      "type": "custom",
+      "customType": "senpi.todo-state",
+      "data": { "schema": "v2", "phases": [{ "name": "Old branch", "tasks": [{ "content": "Unselected work", "status": "completed" }] }] }
+    },
+    {
+      "id": "todo-current",
+      "parentId": "todo-initial",
+      "timestamp": "2026-10-01T00:00:03.000Z",
+      "type": "custom",
+      "customType": "senpi.todo-state",
+      "data": {
+        "schema": "v2",
+        "phases": [{ "name": "Current", "tasks": [{ "content": "Native work", "status": "in_progress" }, { "content": "Superseded work", "status": "abandoned" }] }],
+        "ask": { "entryId": "root", "text": "Complete the fixture work", "capturedAt": 1790812800, "private": "not a DTO" }
+      }
+    },
+    {
+      "id": "todo-malformed",
+      "parentId": "todo-current",
+      "timestamp": "2026-10-01T00:00:04.000Z",
+      "type": "custom",
+      "customType": "senpi.todo-state",
+      "data": { "schema": "v2", "phases": [{ "name": "Invalid", "tasks": [{ "content": "Invalid status", "status": "bogus" }] }] }
+    },
+    {
+      "id": "todo-empty",
+      "parentId": "todo-current",
+      "timestamp": "2026-10-01T00:00:05.000Z",
+      "type": "custom",
+      "customType": "senpi.todo-state",
+      "data": { "schema": "v2", "phases": [] }
+    },
+    {
+      "id": "todo-legacy",
+      "parentId": "root",
+      "timestamp": "2026-10-01T00:00:06.000Z",
+      "type": "message",
+      "message": {
+        "role": "toolResult",
+        "toolCallId": "todo-legacy-call",
+        "toolName": "todowrite",
+        "content": [],
+        "isError": false,
+        "timestamp": 1790812806000,
+        "details": { "todos": [{ "content": "Legacy cancelled", "status": "cancelled" }, { "content": "Legacy unknown", "status": "blocked" }] }
+      }
+    }
+  ]
+}
