@@ -16,6 +16,7 @@ import { createTerminalWsControlFrame, readTerminalWsControlFrame } from '../../
 const repository = fileURLToPath(new URL('../..', import.meta.url));
 const execute = promisify(execFile);
 const requireElectron = createRequire(path.join(repository, 'packages/electron/package.json'));
+const MANUAL_PICKER_DEADLINE_MS = 15 * 60_000;
 
 export function parseDesktopQaArgs(argv) {
   const { values } = parseArgs({ args: argv, strict: true, options: {
@@ -88,16 +89,16 @@ class InspectorClient {
     });
     return new InspectorClient(socket);
   }
-  request(method, params) {
+  request(method, params, timeoutMs = 120_000) {
     const id = ++this.sequence;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`Inspector deadline: ${method}`)); }, 120_000);
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`Inspector deadline: ${method}`)); }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
       this.socket.send(JSON.stringify({ id, method, params }));
     });
   }
-  async evaluate(expression) {
-    const result = await this.request('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+  async evaluate(expression, timeoutMs) {
+    const result = await this.request('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, timeoutMs);
     if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text);
     return result.result.value;
   }
@@ -126,8 +127,10 @@ async function assertPortClosed(port) {
 async function captureOsWindow(pid, destination) {
   if (process.platform !== 'darwin') throw new Error('OS window capture is implemented only for macOS QA');
   const script = `ObjC.import('CoreGraphics');
+    ObjC.bindFunction('CGPreflightScreenCaptureAccess', ['bool', []]);
+    ObjC.bindFunction('CFMakeCollectable', ['id', ['void *']]);
     if (!$.CGPreflightScreenCaptureAccess()) throw Error('Screen Recording permission denied');
-    var windows = ObjC.deepUnwrap($.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly, $.kCGNullWindowID));
+    var windows = ObjC.deepUnwrap($.CFMakeCollectable($.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly, $.kCGNullWindowID)));
     var owned = windows.filter(function(w) { return w.kCGWindowOwnerPID === ${pid} && w.kCGWindowLayer === 0; });
     if (owned.length !== 1) throw Error('Expected one owned OS window');
     JSON.stringify(owned[0]);`;
@@ -211,8 +214,8 @@ export async function runDesktopQa(argv = process.argv.slice(2)) {
     const prefix = `const require = process.getBuiltinModule('module').createRequire(${JSON.stringify(entry)});
       const entry = require(${JSON.stringify(entry)}); const desktop = entry.desktop;
       const win = desktop.getWindow(); const electron = require('electron');`;
-    const main = (body) => inspector.evaluate(`(async () => { ${prefix} ${body} })()`);
-    const renderer = (body) => main(`return await win.webContents.executeJavaScript(${JSON.stringify(body)});`);
+    const main = (body, timeoutMs) => inspector.evaluate(`(async () => { ${prefix} ${body} })()`, timeoutMs);
+    const renderer = (body, timeoutMs) => main(`return await win.webContents.executeJavaScript(${JSON.stringify(body)});`, timeoutMs);
     evidence.checks.ownership = await main(`const server = desktop.getServer(); return {
       pid: process.pid, app: electron.app.getName(), profile: electron.app.getPath('userData'),
       runtime: server.runtime, ready: server.isReady(), port: server.getPort(),
@@ -324,10 +327,10 @@ export async function runDesktopQa(argv = process.argv.slice(2)) {
     }
     if (options.manualPickers) {
       console.log(`OMO_DESKTOP_QA_PICKER folder pid=${child.pid} path=${workspace}`);
-      const folder = await renderer(`window.__OMOCHAMBER_DESKTOP__.selectFolder({defaultPath:${JSON.stringify(workspace)}})`);
+      const folder = await renderer(`window.__OMOCHAMBER_DESKTOP__.selectFolder({defaultPath:${JSON.stringify(workspace)}})`, MANUAL_PICKER_DEADLINE_MS);
       assert.equal(folder, await fs.realpath(workspace));
       console.log(`OMO_DESKTOP_QA_PICKER file pid=${child.pid} path=${selectedFile}`);
-      const file = await renderer(`window.__OMOCHAMBER_DESKTOP__.selectFile({defaultPath:${JSON.stringify(selectedFile)}})`);
+      const file = await renderer(`window.__OMOCHAMBER_DESKTOP__.selectFile({defaultPath:${JSON.stringify(selectedFile)}})`, MANUAL_PICKER_DEADLINE_MS);
       assert.equal(file, await fs.realpath(selectedFile));
       await renderer(`window.__OMOCHAMBER_DESKTOP__.revealPath(${JSON.stringify(file)})`);
       await renderer(`window.__OMOCHAMBER_DESKTOP__.openPath(${JSON.stringify(folder)})`);
@@ -335,7 +338,7 @@ export async function runDesktopQa(argv = process.argv.slice(2)) {
       console.log(`OMO_DESKTOP_QA_CLOSE_FINDER folder=${path.basename(workspace)}`);
       // The caller closes only the Finder window created for this fixture.
       evidence.resources.finderWindow = path.basename(workspace);
-      await matchingLine(process, process.stdin, /^FINDER_CLOSED\r?$/m);
+      await matchingLine(process, process.stdin, /^FINDER_CLOSED\r?$/m, MANUAL_PICKER_DEADLINE_MS);
       evidence.cleanup.push({ resource: 'owned Finder window', confirmedClosed: true });
     } else evidence.blockers.push('Native folder/file picker QA requires --manual-pickers and exact owned OS dialog confirmation');
     const stopped = matchingLine(child, child.stdout, /OMO_DESKTOP_QA_SERVER_STOPPED/);
