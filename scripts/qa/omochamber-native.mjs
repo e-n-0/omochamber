@@ -159,11 +159,14 @@ async function handshakeScenario() {
   const agentDir = path.join(handshakeRoot, 'agent');
   await mkdir(agentDir);
   const { loadHostLaunchSpec } = await import(pathToFileURL(path.join(installed.engineRoot, 'dist/modes/rpc/host-launch-spec.js')).href);
+  const { PINNED_HOST_CLIENT_CAPABILITIES } = await import(pathToFileURL(path.join(installed.engineRoot, 'dist/modes/rpc/host-launch.js')).href);
+  const { RPC_CLIENT_CAPABILITIES_ENV } = await import(pathToFileURL(path.join(installed.engineRoot, 'dist/modes/rpc/custom-capability.js')).href);
   const spec = await loadHostLaunchSpec(installed.launchSpecPath);
   const env = { ...process.env, ...spec.env, OMO_CODING_AGENT_DIR: agentDir, SENPI_CODING_AGENT_DIR: agentDir };
   for (const key of Object.keys(env)) {
     if (/^(?:OMO|SENPI|PI)_(?:RPC_|HOST_|TASK_|SESSION_|SENPI_TASK_|WORKPOOL_)/.test(key)) delete env[key];
   }
+  env[RPC_CLIENT_CAPABILITIES_ENV] = PINNED_HOST_CLIENT_CAPABILITIES.join(',');
   delete env.SENPI_CODING_AGENT_SESSION_DIR;
   // Subscribe before starting the process, then await only that socket's event.
   const { watch } = await import('node:fs');
@@ -181,7 +184,7 @@ async function handshakeScenario() {
       callback();
     };
     // Direct installed rpc-entry, unchanged extensions, no native session or model.
-    nativeProcess = Bun.spawn([installed.bunBinary, installed.rpcEntryPath, '--listen', socketPath, ...spec.hostArgs], {
+    nativeProcess = Bun.spawn([installed.bunBinary, installed.rpcEntryPath, '--multi-session', '--listen', socketPath, ...spec.hostArgs], {
       cwd: handshakeRoot, env, stdout: 'ignore', stderr: 'ignore',
     });
     evidence.resources.push({ kind: 'native-process', pid: nativeProcess.pid, root: handshakeRoot, socketPath, owned: true });
