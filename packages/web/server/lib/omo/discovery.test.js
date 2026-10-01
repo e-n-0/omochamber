@@ -114,6 +114,17 @@ afterEach(async () => {
 });
 
 describe('discoverHosts', () => {
+  test('distinguishes a confirmed absent endpoint from an uncertain native read', async () => {
+    const absent = await endpoint({ online: false });
+    const before = await metadataTree(root);
+    const [found] = await discoverHosts({ runtime });
+    expect(found).toMatchObject({
+      socketPath: absent.socketPath, availability: 'inactive',
+      sessions: null, reason: 'rpc_endpoint_absent',
+    });
+    expect(await metadataTree(root)).toEqual(before);
+  });
+
   test('discovers live ownership with observing wire reads and no registry or lifecycle writes', async () => {
     const host = await endpoint({ sessions: [
       { sessionId: 'routing-handle', sessionPath: '/durable/parent.jsonl', cwd: '/project', kind: 'interactive' },
@@ -219,7 +230,10 @@ describe('discoverHosts', () => {
     const before = await metadataTree(root);
     const hosts = await discoverHosts({ runtime });
     expect(hosts.find((host) => host.socketPath === healthy.socketPath)).toMatchObject({ availability: 'ready', sessions: [] });
-    for (const [host, reason] of [[dead, 'rpc_transport_gone'], [wrong, 'rpc_protocol'], [missing, 'rpc_capability']]) {
+    expect(hosts.find((found) => found.socketPath === dead.socketPath)).toMatchObject({
+      availability: 'inactive', sessions: null, reason: 'rpc_endpoint_absent',
+    });
+    for (const [host, reason] of [[wrong, 'rpc_protocol'], [missing, 'rpc_capability']]) {
       expect(hosts.find((found) => found.socketPath === host.socketPath)).toMatchObject({
         availability: 'unavailable', sessions: null, reason,
       });

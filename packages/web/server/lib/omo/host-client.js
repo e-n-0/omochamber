@@ -182,7 +182,11 @@ export function createHostClient({ socketPath, clientCapabilities = CLIENT_CAPAB
         offset = newline + 1;
       }
     });
-    socket.once('error', () => retire(connection, transportError('rpc_transport_gone', 'Native host connection failed')));
+    socket.once('connect', () => { connection.socketConnected = true; });
+    socket.once('error', (error) => {
+      const absent = !connection.socketConnected && ['ENOENT', 'ECONNREFUSED'].includes(error.code);
+      retire(connection, transportError(absent ? 'rpc_endpoint_absent' : 'rpc_transport_gone', 'Native host connection failed'));
+    });
     socket.once('close', () => retire(connection, transportError('rpc_transport_gone', 'Native host connection closed')));
     await new Promise((resolve, reject) => {
       connection.rejectConnect = reject;

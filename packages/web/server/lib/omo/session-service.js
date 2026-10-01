@@ -356,6 +356,28 @@ export function createSessionService({
     }
     // Cached offline bindings remain addressable. Absence does not erase history.
     for (const binding of sessions.values()) {
+      if (!seen.has(binding.key) && binding.client) {
+        const owner = hosts.find((host) => host.socketPath === binding.host?.socketPath);
+        if (owner?.availability !== 'ready') continue;
+        for (const requestId of binding.pendingRequests) publish(binding, 'commandResult', {
+          result: { requestId, success: false, code: 'uncertain', error: 'Native routing handle disappeared; accepted work will not be retried' },
+        });
+        binding.pendingRequests.clear();
+        binding.generation += 1;
+        binding.unsubscribe?.();
+        binding.client.disconnect();
+        binding.client = undefined;
+        binding.unsubscribeProjection?.();
+        binding.reader?.stop();
+        binding.reader = undefined;
+        binding.streamingMessage = undefined;
+        binding.interactions.clear();
+        binding.ownership = 'offline';
+        binding.host = owner;
+        binding.connection = 'unavailable';
+        publish(binding, 'connection', { connection: 'unavailable', reason: 'native_handle_missing' });
+        continue;
+      }
       if (!seen.has(binding.key) && !binding.client) {
         binding.ownership = 'offline';
         binding.host = undefined;
@@ -547,7 +569,7 @@ export function createSessionService({
       await refreshInventory();
       if (binding.conflict) throw failure('owner_conflict', 'Native session has conflicting owners', 409);
       if (!binding.host) {
-        if (hosts.some((host) => host.availability !== 'ready')) {
+        if (hosts.some((host) => host.availability === 'unavailable')) {
           throw failure('owner_uncertain', 'Native ownership could not be established', 409);
         }
         await ensureHost({ runtime, socketPath: appSocket, cwd: binding.cwd, hostCommandRunner });
@@ -904,7 +926,7 @@ export function createSessionService({
     async isDirectoryInUse(directory) {
       const canonical = await fs.realpath(directory);
       await refreshInventory();
-      if (hosts.some((host) => host.availability !== 'ready')) {
+      if (hosts.some((host) => host.availability === 'unavailable')) {
         throw failure('directory_ownership_uncertain', 'Native directory ownership is unavailable', 409);
       }
       return [...sessions.values()].some((binding) => {

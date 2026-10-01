@@ -36,6 +36,21 @@ async function execute(f, snapshot, command, requestId = command.type) {
 }
 
 describe('native session ownership and hydration', () => {
+  test('inactive registrations do not block persisted history or unrelated directory ownership', async () => {
+    const f = await fixture({
+      discover: async () => [{
+        socketPath: '/missing/old-host.sock', availability: 'inactive',
+        reason: 'rpc_endpoint_absent', sessions: null,
+      }],
+    });
+    const [offline] = await f.service.listSessions({});
+    expect(offline.ownership).toBe('offline');
+    expect(await f.service.isDirectoryInUse(f.project)).toBe(false);
+    const restored = await f.service.attachSession(offline.sessionKey);
+    expect(restored.ownership).toBe('hosted');
+    expect(f.frames.filter((frame) => frame.type === 'prompt')).toHaveLength(0);
+  });
+
   test('offline persisted sessions reopen only after ownership is established', async () => {
     const f = await fixture();
     const [hosted] = await f.service.listSessions({});
@@ -47,6 +62,20 @@ describe('native session ownership and hydration', () => {
     expect(snapshot.ownership).toBe('hosted');
     expect(f.ensureCalls).toBe(1);
     expect(f.frames.find((frame) => frame.type === 'open_session')).toMatchObject({ sessionPath: f.sessionPath, retain_on_disconnect: true });
+  });
+
+  test('connected sessions reopen after their ready owner no longer lists the routing handle', async () => {
+    const f = await fixture();
+    const [session] = await f.service.listSessions({});
+    const initial = await f.service.attachSession(session.sessionKey);
+    f.inventory.length = 0;
+    const [offline] = await f.service.listSessions({});
+    expect(offline.ownership).toBe('offline');
+    const restored = await f.service.attachSession(session.sessionKey);
+    expect(restored.sessionKey).toBe(initial.sessionKey);
+    expect(restored.connectionEpoch).not.toBe(initial.connectionEpoch);
+    expect(restored.ownership).toBe('hosted');
+    expect(f.frames.filter((frame) => frame.type === 'prompt')).toHaveLength(0);
   });
 
   test('create intent and opaque identity survive adapter loss without replay', async () => {

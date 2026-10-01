@@ -262,7 +262,7 @@ describe('createHostClient', () => {
     try {
       const socketPath = path.join(root, 'missing.sock');
       const client = createHostClient({ socketPath });
-      await expect(client.connect()).rejects.toMatchObject({ code: 'rpc_transport_gone' });
+      await expect(client.connect()).rejects.toMatchObject({ code: 'rpc_endpoint_absent' });
       await expect(client.connect()).rejects.not.toThrow(socketPath);
       client.disconnect();
     } finally {

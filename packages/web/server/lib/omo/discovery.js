@@ -177,7 +177,11 @@ async function probeEndpoint(dir, hostClientFactory) {
     descriptor.availability = 'ready';
     return descriptor;
   } catch (error) {
-    return { ...descriptor, reason: error.code ?? 'discovery_unavailable' };
+    return {
+      ...descriptor,
+      availability: error.code === 'rpc_endpoint_absent' ? 'inactive' : 'unavailable',
+      reason: error.code ?? 'discovery_unavailable',
+    };
   } finally {
     client?.disconnect(); // Only our probe connection; never close a session or stop a host.
   }
@@ -187,7 +191,8 @@ async function probeEndpoint(dir, hostClientFactory) {
  * Read-only layout-2 registered endpoint discovery, including shards in nondefault roots.
  * Returned descriptors (native protocol, sockets, context, and store roots) are SERVER PRIVATE.
  * Missing registration is [], but failed enumeration throws and individual failed reads stay
- * visible as unavailable descriptors with sessions:null, never an authoritative empty inventory.
+ * visible with sessions:null, never an authoritative empty inventory. Only a confirmed
+ * absent/refused socket is inactive; timeouts, permission and protocol failures stay unavailable.
  */
 export async function discoverHosts({ runtime, hostClientFactory = createHostClient }) {
   const parsed = runtimeSchema.safeParse(runtime);
