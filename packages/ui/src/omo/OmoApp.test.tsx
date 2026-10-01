@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { act, Profiler } from 'react';
+import { EditorView } from '@codemirror/view';
 import { browser, click, mount, nativeSnapshot, type } from './chat/chatTestFixture';
 import { createNativeClient } from './client';
 import { createNativeStore } from './state';
@@ -18,6 +19,8 @@ function deferred<T>() {
 }
 
 function fixture() {
+  browser.localStorage.clear();
+  browser.happyDOM.setWindowSize({ width: 1_280, height: 800 });
   const projects: NativeProject[] = [
     { id: 'project-a', path: '/workspace', name: 'PROJECT_A', worktreePaths: ['/worktree'] },
     { id: 'project-b', path: '/other', name: 'PROJECT_B' },
@@ -29,6 +32,7 @@ function fixture() {
   ];
   const creates: CreateSession[] = [];
   const commands: CommandEnvelope[] = [];
+  const workspaceReads: string[] = [];
   const attached: string[] = [];
   const streams = new Map<string, ReadableStreamDefaultController<Uint8Array>>();
   const snapshots = new Map<string, ReturnType<typeof nativeSnapshot>>();
@@ -38,7 +42,7 @@ function fixture() {
   let projectStatus = 200;
   let sessionStatus = 200;
   let revision = 1;
-  const fetchNative = async (route: string, options?: RuntimeFetchOptions): Promise<Response> => {
+  const fetchNative = async (route: string, options?: RuntimeFetchOptions, query = new URLSearchParams()): Promise<Response> => {
     if (route === '/auth/session') return Response.json({ authenticated: true, disabled: true });
     if (route === '/api/omo/settings') return Response.json({ schemaVersion: 1, theme: 'openchamber-light', ...(
       options?.method === 'PATCH' ? JSON.parse(String(options.body)) : null
@@ -99,7 +103,17 @@ function fixture() {
       commands.push(command);
       return Response.json({ requestId: command.requestId, connectionEpoch: command.connectionEpoch, accepted: true }, { status: 202 });
     }
-    if (route === '/api/fs/list') return Response.json([]);
+    if (route === '/api/fs/list') {
+      const directory = options?.directory ?? query.get('directory') ?? '/workspace';
+      workspaceReads.push(directory);
+      return Response.json({ path: directory, entries: [{
+        name: 'draft.ts', path: `${directory}/draft.ts`, isDirectory: false, isFile: true, isSymbolicLink: false,
+      }] });
+    }
+    if (route === '/api/fs/stat') return Response.json({
+      path: query.get('path'), isFile: true, size: 32, mtimeMs: 1,
+    });
+    if (route === '/api/fs/read') return new Response('export const initial = true;');
     return Response.json({ code: 'fixture_unavailable' }, { status: 503 });
   };
   const client = createNativeClient({ fetch: fetchNative });
@@ -108,7 +122,10 @@ function fixture() {
     else signal.addEventListener('abort', () => resolve(), { once: true });
   }) });
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (input, options) => fetchNative(new URL(input instanceof Request ? input.url : String(input), browser.location.href).pathname, options);
+  globalThis.fetch = (input, options) => {
+    const url = new URL(input instanceof Request ? input.url : String(input), browser.location.href);
+    return fetchNative(url.pathname, options, url.searchParams);
+  };
   async function emit(event: SessionEvent) {
     const stream = streams.get(event.sessionKey);
     assert(stream);
@@ -126,13 +143,30 @@ function fixture() {
     await act(async () => { stream.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`)); await received; });
   }
   return {
-    client, store, projects, sessions, creates, commands, attached, createStarted, creation,
+    client, store, projects, sessions, creates, commands, workspaceReads, attached, createStarted, creation,
     deferCreation: () => { deferCreation = true; },
     failProjects: () => { projectStatus = 503; },
     failSessions: () => { sessionStatus = 503; },
     native: (key: string, event: NativeEvent) => emit({ type: 'native', sessionKey: key, connectionEpoch: 1, revision: ++revision, event }),
-    cleanup: async () => { await store.dispose(); globalThis.fetch = originalFetch; expect(streams.size).toBe(0); },
+    cleanup: async () => {
+      await store.dispose(); globalThis.fetch = originalFetch; browser.localStorage.clear(); expect(streams.size).toBe(0);
+    },
   };
+}
+
+async function press(selector: string, key: string) {
+  const control = document.querySelector(selector);
+  assert(control instanceof HTMLElement);
+  await act(async () => { control.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })); });
+}
+
+async function measureChatArea(view: Awaited<ReturnType<typeof mount>>, client: ReturnType<typeof createNativeClient>, store: ReturnType<typeof createNativeStore>) {
+  const area = view.host.querySelector('[data-chat-area]');
+  assert(area instanceof HTMLElement);
+  // happy-dom has no layout engine; supply the observed parent width to the
+  // real resize handler rather than replacing the handler or controllers.
+  Object.defineProperty(area, 'clientWidth', { configurable: true, value: 1_000 });
+  await view.render(<OmoApp client={client} store={store} />);
 }
 
 test('explicit New session creates once in the registered worktree and selects native chat', async () => {
@@ -198,6 +232,267 @@ test('keeps pending native dialogs mounted while Files navigation is active', as
     expect(document.querySelector('[data-testid="omo-pending-dialog"]')).not.toBeNull();
     expect(view.host.querySelector('[data-testid="omo-tab-files"]')?.getAttribute('aria-pressed')).toBe('true');
     expect(view.host.querySelector('[data-testid="omo-workbench"]')).not.toBeNull();
+  } finally { await view.cleanup(); await h.cleanup(); }
+});
+
+test('tool navigation keeps chat visible and the selected native session unchanged', async () => {
+  // Given a selected native chat and its mounted composer.
+  const h = fixture();
+  const view = await mount(<OmoApp client={h.client} store={h.store} />);
+  try {
+    await click('[data-session-key="chat-a"]');
+    const composer = view.host.querySelector('[data-testid="omo-composer"]');
+    const chat = view.host.querySelector('[data-testid="omo-chat-column"]');
+    assert(chat instanceof HTMLElement);
+    // When Files opens beside the chat.
+    await click('[data-testid="omo-tab-files"]');
+    // Then neither chat nor native selection is replaced by the context tool.
+    expect(view.host.querySelector('[data-testid="omo-composer"]')).toBe(composer);
+    expect(chat.closest('[hidden]')).toBeNull();
+    expect(view.host.querySelector('[data-testid="omo-context-pane"]')?.hasAttribute('hidden')).toBe(false);
+    expect(view.host.querySelector('#omo-panels')?.hasAttribute('hidden')).toBe(true);
+    expect(h.store.getState().selectedSessionKey).toBe('chat-a');
+    expect(h.attached).toEqual(['chat-a']);
+    expect(h.commands).toHaveLength(0);
+  } finally { await view.cleanup(); await h.cleanup(); }
+});
+
+test('selecting the active rail collapses context without replacing its workbench', async () => {
+  // Given an open Files context with a retained workbench.
+  const h = fixture();
+  const view = await mount(<OmoApp client={h.client} store={h.store} />);
+  try {
+    await click('[data-session-key="chat-a"]');
+    await click('[data-testid="omo-tab-files"]');
+    const workbench = view.host.querySelector('[data-testid="omo-workbench"]');
+    const reads = h.workspaceReads.length;
+    // When the same rail control is selected again.
+    await click('[data-testid="omo-tab-files"]');
+    // Then the panel collapses and yields to native work status.
+    expect(view.host.querySelector('[data-testid="omo-workbench"]')).toBe(workbench);
+    expect(view.host.querySelector('[data-testid="omo-context-pane"]')?.hasAttribute('hidden')).toBe(true);
+    expect(view.host.querySelector('[data-testid="omo-tab-files"]')?.getAttribute('aria-expanded')).toBe('false');
+    expect(view.host.querySelector('#omo-panels')?.hasAttribute('hidden')).toBe(false);
+    expect(h.workspaceReads).toHaveLength(reads);
+    expect(h.store.getState().selectedSessionKey).toBe('chat-a');
+  } finally { await view.cleanup(); await h.cleanup(); }
+});
+
+test('composer and pending dialog drafts survive context resize expand and collapse', async () => {
+  // Given native composer and input-dialog drafts.
+  const h = fixture();
+  const view = await mount(<OmoApp client={h.client} store={h.store} />);
+  try {
+    await click('[data-session-key="chat-a"]');
+    await type('[data-testid="omo-composer"]', 'COMPOSER_DRAFT');
+    await h.native('chat-a', { type: 'interaction_pending', interaction: {
+      id: 'request-draft', method: 'input', title: 'NATIVE_INPUT',
+    } });
+    await type('[data-testid="omo-dialog-input"]', 'DIALOG_DRAFT');
+    const composer = view.host.querySelector('[data-testid="omo-composer"]');
+    const dialog = document.querySelector('[data-testid="omo-pending-dialog"]');
+    // When context tools change size, expand, switch and collapse.
+    await click('[data-testid="omo-tab-files"]');
+    await measureChatArea(view, h.client, h.store);
+    await press('[data-testid="omo-context-resize"]', 'ArrowLeft');
+    await click('[data-testid="omo-context-expand"]');
+    await click('[data-testid="omo-tab-changes"]');
+    await click('[data-testid="omo-context-close"]');
+    // Then the mounted drafts and outstanding native request are unchanged.
+    expect(view.host.querySelector('[data-testid="omo-composer"]')).toBe(composer);
+    expect(document.querySelector('[data-testid="omo-pending-dialog"]')).toBe(dialog);
+    expect(view.host.querySelector<HTMLInputElement>('[data-testid="omo-composer"]')?.value).toBe('COMPOSER_DRAFT');
+    expect(document.querySelector<HTMLInputElement>('[data-testid="omo-dialog-input"]')?.value).toBe('DIALOG_DRAFT');
+    expect(h.store.getState().sessions.get('chat-a')?.snapshot?.pendingInteractions[0]?.id).toBe('request-draft');
+    expect(h.commands).toHaveLength(0);
+  } finally { await view.cleanup(); await h.cleanup(); }
+});
+
+test('file editor drafts and controller identity survive tools collapse and directory revisits', async () => {
+  // Given an edited file in the registered directory.
+  const h = fixture();
+  const view = await mount(<OmoApp client={h.client} store={h.store} />);
+  try {
+    await click('[data-testid="omo-tab-files"]');
+    await click('.omo-context-content [title="/workspace/draft.ts"]');
+    const editorElement = view.host.querySelector('.cm-editor');
+    assert(editorElement instanceof HTMLElement);
+    const editor = EditorView.findFromDOM(editorElement);
+    assert(editor);
+    await act(async () => { editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: 'UNSAVED_EDITOR_DRAFT' } }); });
+    // When the pane changes tools and presentation, then leaves and revisits its directory.
+    await click('[data-testid="omo-context-expand"]');
+    await click('[data-testid="omo-tab-changes"]');
+    await click('[data-testid="omo-tab-terminal"]');
+    await click('[data-testid="omo-context-close"]');
+    await click('[data-project-id="project-b"]');
+    await click('[data-testid="omo-tab-files"]');
+    await click('[data-project-id="project-a"]');
+    await click('[data-testid="omo-tab-files"]');
+    // Then the same editor still owns its unsaved content.
+    expect(view.host.querySelector('.cm-editor')).toBe(editorElement);
+    expect(editorElement.closest('[hidden]')).toBeNull();
+    expect(EditorView.findFromDOM(editorElement)).toBe(editor);
+    expect(editor.state.doc.toString()).toBe('UNSAVED_EDITOR_DRAFT');
+    expect(view.host.querySelector('[data-testid="omo-file-save"]')?.hasAttribute('disabled')).toBe(false);
+  } finally { await view.cleanup(); await h.cleanup(); }
+});
+
+test('sidebar resizing is bounded and persistent controls stay mounted when it collapses', async () => {
+  // Given the original default sidebar width and persistent titlebar controls.
+  const h = fixture();
+  const view = await mount(<OmoApp client={h.client} store={h.store} />);
+  try {
+    const shell = view.host.querySelector('[data-testid="omo-app"]');
+    const toggle = view.host.querySelector('[data-testid="omo-navigation-toggle"]');
+    const create = view.host.querySelector('[data-testid="omo-new-session"]');
+    expect(shell?.getAttribute('data-navigation-width')).toBe('280');
+    // When resizing reaches both bounds and navigation collapses.
+    await press('[data-testid="omo-navigation-resize"]', 'Home');
+    expect(shell?.getAttribute('data-navigation-width')).toBe('264');
+    await press('[data-testid="omo-navigation-resize"]', 'ArrowLeft');
+    expect(shell?.getAttribute('data-navigation-width')).toBe('264');
+    await press('[data-testid="omo-navigation-resize"]', 'End');
+    await press('[data-testid="omo-navigation-resize"]', 'ArrowRight');
+    await click('[data-testid="omo-navigation-toggle"]');
+    // Then the maximum and collapsed state are reflected without moving controls.
+    expect(shell?.getAttribute('data-navigation-width')).toBe('500');
+    expect(shell?.getAttribute('data-navigation-open')).toBe('false');
+    expect(view.host.querySelector('[data-testid="omo-navigation-toggle"]')).toBe(toggle);
+    expect(view.host.querySelector('[data-testid="omo-new-session"]')).toBe(create);
+    expect(create?.closest('#omo-navigation')).toBeNull();
+  } finally { await view.cleanup(); await h.cleanup(); }
+});
+
+test('context width survives right-anchored expansion and uses each tool preference', async () => {
+  // Given a measured Files context.
+  const h = fixture();
+  const view = await mount(<OmoApp client={h.client} store={h.store} />);
+  try {
+    await click('[data-testid="omo-tab-files"]');
+    await measureChatArea(view, h.client, h.store);
+    const shell = view.host.querySelector('[data-testid="omo-app"]');
+    const pane = view.host.querySelector('[data-testid="omo-context-pane"]');
+    const area = view.host.querySelector('[data-chat-area]');
+    assert(area instanceof HTMLElement);
+    // The actual available width changes after render, as on sidebar collapse.
+    Object.defineProperty(area, 'clientWidth', { configurable: true, value: 800 });
+    // When Files is resized and expansion toggles before switching tools.
+    await press('[data-testid="omo-context-resize"]', 'ArrowLeft');
+    expect(shell?.getAttribute('data-context-width')).toBe('0.52');
+    await click('[data-testid="omo-context-expand"]');
+    expect(pane?.getAttribute('data-expanded')).toBe('true');
+    await click('[data-testid="omo-context-expand"]');
+    await click('[data-testid="omo-tab-changes"]');
+    expect(shell?.getAttribute('data-context-width')).toBe('0.5');
+    await click('[data-testid="omo-tab-files"]');
+    // Then normal width is restored on the same context node.
+    expect(view.host.querySelector('[data-testid="omo-context-pane"]')).toBe(pane);
+    expect(pane?.getAttribute('data-expanded')).toBe('false');
+    expect(shell?.getAttribute('data-context-width')).toBe('0.52');
+  } finally { await view.cleanup(); await h.cleanup(); }
+});
+
+test('pointer resize persists on release and cancellation restores its captured width', async () => {
+  // Given the default sidebar and no persisted layout.
+  const h = fixture();
+  const view = await mount(<OmoApp client={h.client} store={h.store} />);
+  try {
+    const handle = view.host.querySelector('[data-testid="omo-navigation-resize"]');
+    assert(handle instanceof HTMLElement);
+    const shell = view.host.querySelector('[data-testid="omo-app"]');
+    // When a drag previews a width, releases it, then a second drag is canceled.
+    await act(async () => {
+      handle.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 7, button: 0, clientX: 280, bubbles: true }));
+      window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 7, clientX: 400 }));
+    });
+    expect(shell?.getAttribute('data-navigation-width')).toBe('400');
+    expect(browser.localStorage.getItem('omochamber.layout:%2Fworkspace')).toBeNull();
+    await act(async () => { window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7, clientX: 400 })); });
+    const committed = browser.localStorage.getItem('omochamber.layout:%2Fworkspace');
+    assert(committed);
+    await act(async () => {
+      handle.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 8, button: 0, clientX: 400, bubbles: true }));
+      window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 8, clientX: 500 }));
+      window.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 8 }));
+    });
+    // Then the last committed width remains authoritative and listeners are gone.
+    expect(shell?.getAttribute('data-navigation-width')).toBe('400');
+    expect(browser.localStorage.getItem('omochamber.layout:%2Fworkspace')).toBe(committed);
+    await act(async () => { window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 8, clientX: 450 })); });
+    expect(shell?.getAttribute('data-navigation-width')).toBe('400');
+  } finally { await view.cleanup(); await h.cleanup(); }
+});
+
+test('compact navigation stays reachable without changing the desktop layout preference', async () => {
+  // Given a canonical directory with default desktop preferences.
+  const h = fixture();
+  const view = await mount(<OmoApp client={h.client} store={h.store} />);
+  try {
+    // When the viewport becomes compact and native navigation is opened.
+    await act(async () => { browser.happyDOM.setWindowSize({ width: 390, height: 844 }); });
+    const shell = view.host.querySelector('[data-testid="omo-app"]');
+    expect(shell?.getAttribute('data-navigation-open')).toBe('false');
+    await click('[data-testid="omo-navigation-toggle"]');
+    expect(shell?.getAttribute('data-navigation-open')).toBe('true');
+    await click('[data-session-key="chat-a"]');
+    // Then selecting native chat closes the overlay without losing tools or writing a desktop preference.
+    expect(shell?.getAttribute('data-navigation-open')).toBe('false');
+    expect(view.host.querySelector('[data-testid="omo-tab-files"]')?.hasAttribute('disabled')).toBe(false);
+    expect(view.host.querySelector('[data-testid="omo-new-session"]')?.hasAttribute('disabled')).toBe(false);
+    expect(h.store.getState().selectedSessionKey).toBe('chat-a');
+    expect(browser.localStorage.getItem('omochamber.layout:%2Fworkspace')).toBeNull();
+    await act(async () => { browser.happyDOM.setWindowSize({ width: 1_280, height: 800 }); });
+    expect(shell?.getAttribute('data-navigation-open')).toBe('true');
+  } finally { await view.cleanup(); await h.cleanup(); }
+});
+
+test('layout preferences restore by canonical directory without hydration writes', async () => {
+  // Given explicit layout choices in a project directory.
+  const h = fixture();
+  let view = await mount(<OmoApp client={h.client} store={h.store} />);
+  try {
+    expect(browser.localStorage.getItem('omochamber.layout:%2Fworkspace')).toBeNull();
+    await press('[data-testid="omo-navigation-resize"]', 'End');
+    await click('[data-testid="omo-tab-files"]');
+    await click('[data-testid="omo-context-expand"]');
+    await click('[data-testid="omo-navigation-toggle"]');
+    const saved = browser.localStorage.getItem('omochamber.layout:%2Fworkspace');
+    assert(saved);
+    // When another canonical directory is selected, then the original is revisited and remounted.
+    await click('[data-worktree-path="/worktree"]');
+    expect(view.host.querySelector('[data-testid="omo-app"]')?.getAttribute('data-navigation-width')).toBe('280');
+    expect(view.host.querySelector('[data-testid="omo-app"]')?.getAttribute('data-context-open')).toBe('false');
+    expect(browser.localStorage.getItem('omochamber.layout:%2Fworktree')).toBeNull();
+    await click('[data-project-id="project-a"]');
+    await view.cleanup();
+    view = await mount(<OmoApp client={h.client} store={h.store} />);
+    // Then the original preferences hydrate without rewriting either namespace or selecting native work.
+    const shell = view.host.querySelector('[data-testid="omo-app"]');
+    expect(shell?.getAttribute('data-navigation-width')).toBe('500');
+    expect(shell?.getAttribute('data-navigation-open')).toBe('false');
+    expect(shell?.getAttribute('data-context-open')).toBe('true');
+    expect(shell?.getAttribute('data-context-expanded')).toBe('true');
+    expect(browser.localStorage.getItem('omochamber.layout:%2Fworkspace')).toBe(saved);
+    expect(browser.localStorage.getItem('omochamber.layout:%2Fworktree')).toBeNull();
+    expect(h.store.getState().selectedSessionKey).toBeNull();
+    expect(h.commands).toHaveLength(0);
+  } finally { await view.cleanup(); await h.cleanup(); }
+});
+
+test('malformed layout preferences do not replace inventory or write defaults', async () => {
+  // Given a malformed browser-only layout preference.
+  const h = fixture();
+  browser.localStorage.setItem('omochamber.layout:%2Fworkspace', '{"version":1,"navigationWidth":9999}');
+  // When the native shell hydrates its registered directory.
+  const view = await mount(<OmoApp client={h.client} store={h.store} />);
+  try {
+    // Then native inventory and default geometry remain usable without granting authority to the malformed value.
+    expect(view.host.querySelector('[data-testid="omo-app"]')?.getAttribute('data-navigation-width')).toBe('280');
+    expect(view.host.querySelectorAll('[data-project-id]')).toHaveLength(2);
+    expect(view.host.querySelectorAll('[data-session-key]')).toHaveLength(3);
+    expect(view.host.querySelector('[role="alert"]')).not.toBeNull();
+    expect(browser.localStorage.getItem('omochamber.layout:%2Fworkspace')).toBe('{"version":1,"navigationWidth":9999}');
   } finally { await view.cleanup(); await h.cleanup(); }
 });
 

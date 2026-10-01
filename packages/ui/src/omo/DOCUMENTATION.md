@@ -11,7 +11,7 @@ This directory owns the native browser application shared with local Electron. I
 | `contracts.ts` | Zod application wire codec and public views, including `NativeSnapshot`, `NativeCommand`, `PendingInteraction`, goal/todo/task/DAG projections and event envelopes |
 | `client.ts` | `createNativeClient`, `NativeClient`, `NativeClientError` and `NativeSubscription`; parsed HTTP/SSE, deadlines and submission correlation |
 | `state.ts` | `createNativeStore`, `NativeStore`, `NativeStateError` and external store state; selection, hydration, event reduction and mutation ledger |
-| `OmoApp.tsx` | Native shell, project/directory/session selection, Chat/Files/Changes/Terminal tabs and panels |
+| `OmoApp.tsx` | Native shell, project/directory/session selection, persistent chat, context rail and directory-scoped layout preferences |
 | `AuthGate.tsx` | Same-origin password login before workspace initialization |
 | `AppearanceProvider.tsx`, `appearance/` | Native appearance settings and semantic theme/font/density application |
 | `chat/` | Active-branch transcript, live content/tools, composer/model controls and native dialogs |
@@ -54,7 +54,7 @@ Runtime changes reset the store and appearance scope, including an A-to-B-to-A c
 
 Writable controls require a ready, connected, selected hosted session. Terminal-owned sessions remain read-only; an offline session must safely attach before mutation. Backend ownership checks remain authoritative even if a control is visible.
 
-The composer supports prompt, steer/follow-up while busy, abort and native model/thinking selection. It doesn't invent optimistic assistant output or completion. `NativeDialogs` is mounted outside the tab content so select/confirm/input/editor/question requests remain answerable while viewing files or terminals. Stale or already-submitted interaction IDs are refused. Browser reconnect can recover adapter-held dialogs; generic dialogs can't be recreated after adapter/native transport loss.
+The composer supports prompt, steer/follow-up while busy, abort and native model/thinking selection. It doesn't invent optimistic assistant output or completion. `NativeDialogs` is mounted outside the workspace columns so select/confirm/input/editor/question requests remain answerable while viewing files or terminals. Stale or already-submitted interaction IDs are refused. Browser reconnect can recover adapter-held dialogs; generic dialogs can't be recreated after adapter/native transport loss.
 
 OMO owns goals and all native work. The goal panel requires the extension-owned `goal` command and a ready goal projection. It exposes set/replace/pause/resume/clear, not manual complete/blocked. Native replacement dialogs and sidecar confirmation belong to the backend. Pausing a goal doesn't abort a running turn.
 
@@ -64,9 +64,21 @@ Every work projection is `ready`, `incomplete` or `unavailable`. Partial/failed 
 
 ## Local workspace and appearance
 
+The native shell follows the original OpenChamber layout without importing its legacy controllers:
+
+- A full-height left sidebar starts at 280 px and resizes between 264 and 500 px. The sidebar toggle and native New session action stay in one top-left control cluster, including while navigation is collapsed.
+- The 48 px header sits above the main workspace, beside the sidebar. Files, Changes and Terminal open from the 44 px right icon rail.
+- Chat stays mounted beside the context pane. Selecting the active rail icon closes that pane. Expand grows the same pane leftwards from its right anchor; collapse and resize preserve its workbench and editor identity.
+- `NativePanels` occupies a 300 px work-status card inside the chat column and yields whenever context opens. Its own drafts and retained native projections stay mounted while hidden.
+- Compact layouts use the same persistent controls, a navigation overlay and vertically shared chat/context space. Narrow screens stack work status below chat. Native dialogs remain outside these layout changes.
+
+`OmoApp` owns browser layout preferences under `omochamber.layout:<encoded canonical directory>`. It parses version 1 preferences before using sidebar visibility/width, work-status visibility, context tool/visibility, expansion and per-tool width fractions. Hydration never writes defaults. Explicit changes write synchronously to their captured directory; pointer resizing persists on release, and cancel restores the starting width. Missing preferences use defaults. Malformed or failed storage reads/writes show an error while leaving native inventory and execution state intact.
+
+These preferences grant no native authority and never select or mutate a native session. Directory identity comes from registered project/worktree paths, not project names or chat history. Responsive navigation visibility is temporary, separate from the directory's desktop sidebar preference.
+
 The selected registered project or worktree scopes files, Git and terminals. Workbench controllers use explicit local routes and runtime URL/auth helpers. They reuse the editor, diff renderer and `TerminalViewport`, without importing legacy `GitView`/`TerminalView` session stores.
 
-Files support browsing, editing and explicit save. Changes expose status, working/staged diffs, stage/unstage and app worktree creation/removal. Terminals use real PTYs and authenticated WebSockets with attach, resize, input and close. Backend stop owns PTY shutdown; browser unmount closes its subscriptions without claiming native host ownership.
+Files support browsing, editing and explicit save. The workbench retains visited directory controllers for the shell's lifetime; hidden scopes and tools are inactive, including when context is closed. Changes expose status, working/staged diffs, stage/unstage and app worktree creation/removal. Terminals use real PTYs and authenticated WebSockets with attach, resize, input and close. Backend stop owns PTY shutdown; browser unmount closes its subscriptions without claiming native host ownership.
 
 Appearance hydration doesn't write defaults. Explicit settings writes are serialized and confirmed from the backend; failed reads/writes remain visible. The shell exposes light/dark/system selection. The appearance contract also carries font and compact/comfortable density settings. Custom theme import/deletion is unavailable.
 
@@ -87,5 +99,7 @@ Unit/browser fixtures cover these consumer paths. Successful fixture replies and
 Local browser and local Electron use this same application. Responsive layout isn't native-mobile packaging or remote access. VS Code, Capacitor/native mobile, remote/SSH/tunnel/relay/pairing, updater workflows, multi-run/fusion/scheduling and advanced OpenCode settings are deferred.
 
 For executable UI changes, use the existing isolated runner, `node scripts/run-isolated-tests.mjs packages/ui/src/omo`, and owning UI/web checks. Subscribe to state/events before test actions; use bounded event deadlines, not fixed sleeps. Rendered/browser evidence is required for UI behavior, and OS captures are required for native desktop claims.
+
+The isolated runner accepts directories, not individual files. Run `bun test packages/ui/src/omo/OmoApp.test.tsx` for the owning shell file in the same single-file process the runner uses. Its DOM fixtures verify chat/context coexistence, tool collapse, composer/editor/dialog persistence, resize/expanded attributes, directory preference round trips and inventory failure behavior. They do not prove rendered geometry, responsive clipping or native window placement.
 
 Documentation-only changes need narrow link/syntax review and documented command checks, not prose-pinning tests or another UI build.

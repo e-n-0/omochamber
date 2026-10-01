@@ -184,23 +184,30 @@ export async function runBrowserQa(argv = process.argv.slice(2)) {
     if (width <= 1024) await click('[data-testid="omo-navigation-toggle"]');
     await capture('initial');
     if (scenario === 'layout') {
+      if (values['session-key']) await chooseSession();
       for (const theme of ['light', 'dark']) {
         await navigation();
         await click(`[data-testid="omo-theme-${theme}"]`);
         await page.locator(`[data-testid="omo-theme-${theme}"][aria-pressed="true"]:not([disabled])`).waitFor({ state: 'visible' });
         await capture(`${theme}-navigation`);
         if (width <= 1024) await click('[data-testid="omo-navigation-toggle"]');
-        for (const tab of ['chat', 'files', 'changes', 'terminal']) {
+        for (const tab of ['files', 'changes', 'terminal']) {
           await click(`[data-testid="omo-tab-${tab}"]`);
           await page.locator(`[data-testid="omo-tab-${tab}"][aria-pressed="true"]`).waitFor({ state: 'visible' });
+          await page.locator('[data-testid="omo-chat-column"]').waitFor({ state: 'visible' });
           await capture(`${theme}-${tab}`);
         }
+        await click('[data-testid="omo-context-close"]');
+        await page.locator('#omo-context-pane').waitFor({ state: 'hidden' });
+        if (await page.locator('[data-testid="omo-panels-toggle"]').getAttribute('aria-pressed') === 'true') {
+          await click('[data-testid="omo-panels-toggle"]');
+        }
+        await page.locator('#omo-panels').waitFor({ state: 'hidden' });
         await click('[data-testid="omo-panels-toggle"]');
         await page.locator('#omo-panels').waitFor({ state: 'visible' });
         await capture(`${theme}-panels`);
         await click('[data-testid="omo-panels-toggle"]');
       }
-      await click('[data-testid="omo-tab-chat"]');
     }
     if (scenario === 'chat') {
       await chooseSession();

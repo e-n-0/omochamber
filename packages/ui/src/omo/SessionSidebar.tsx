@@ -69,7 +69,7 @@ function SessionRow({ session, store, selected, onSelect }: {
   </li>;
 }
 
-export function SessionSidebar({ sessions, store, sessionKey, loading, error, creating, canCreate, onCreate, onSelect, onRefresh }: {
+export function SessionSidebar({ sessions, store, sessionKey, loading, error, creating, canCreate, onCreate, onSelect, onRefresh, showCreate = true }: {
   readonly sessions: readonly SessionSummary[];
   readonly store: NativeStore;
   readonly sessionKey: string | null;
@@ -80,6 +80,7 @@ export function SessionSidebar({ sessions, store, sessionKey, loading, error, cr
   readonly onCreate: () => void;
   readonly onSelect: (session: SessionSummary) => void;
   readonly onRefresh: () => void;
+  readonly showCreate?: boolean;
 }) {
   const { t } = useI18n();
   return <section aria-label={t('mobile.sessions.sheet.title')} data-testid="omo-session-sidebar" className="space-y-3 border-t border-border pt-4">
@@ -89,9 +90,9 @@ export function SessionSidebar({ sessions, store, sessionKey, loading, error, cr
         <Icon name="refresh" className="size-4" />
       </Button>
     </div>
-    <Button size="sm" className="w-full" disabled={!canCreate || creating} onClick={onCreate} data-testid="omo-new-session">
+    {showCreate && <Button size="sm" className="w-full" disabled={!canCreate || creating} onClick={onCreate} data-testid="omo-new-session">
       <Icon name="add" className="size-4" />{t('sessions.sidebar.header.actions.newSession')}
-    </Button>
+    </Button>}
     {loading && <p role="status" className="typography-meta text-muted-foreground">{t('common.loading')}</p>}
     {error && <p role="alert" className="break-words typography-meta text-[var(--status-error-text)]">{nativeErrorCopy(error, t)}</p>}
     {!loading && !error && sessions.length === 0 && <p className="typography-meta text-muted-foreground">
