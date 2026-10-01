@@ -46,6 +46,10 @@
     },
     "packages/electron": {
       "entry": [
+        "omo/entry.mjs",
+        "omo/preload.mjs",
+        "omo/qa-probe-preload.mjs",
+        "omo/**/*.{test,spec}.{js,cjs,mjs}",
         "entry.mjs",
         "main.mjs",
         "preload.mjs",
@@ -56,6 +60,7 @@
         "scripts/**/*.{js,cjs,mjs}"
       ],
       "project": [
+        "omo/**/*.{js,cjs,mjs}",
         "*.{js,cjs,mjs}",
         "scripts/**/*.{js,cjs,mjs}"
       ]
