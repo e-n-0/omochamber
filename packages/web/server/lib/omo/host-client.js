@@ -6,7 +6,7 @@ import { StringDecoder } from 'node:string_decoder';
 import { z } from 'zod';
 
 const REQUIRED_CAPABILITIES = ['multi_session', 'extension_events', 'session_context', 'session_kind'];
-const CLIENT_CAPABILITIES = ['extension_events', 'question', 'media_placeholders'];
+const CLIENT_CAPABILITIES = ['extension_events', 'question'];
 const OBSERVING_COMMANDS = new Set(['get_protocol_info', 'list_sessions']);
 const TERMINAL_READS = new Set([...OBSERVING_COMMANDS, 'get_state', 'get_messages', 'subscribe']);
 const MAX_LINE_CHARACTERS = 16 * 1024 * 1024;

@@ -81,7 +81,7 @@ describe('createHostClient', () => {
     const client = clientFor(host, { clientCapabilities: ['custom_capability'] });
     await expect(client.connect()).resolves.toEqual(protocol);
     expect(host.frames.map((frame) => frame.type)).toEqual(['get_protocol_info', 'set_client_info']);
-    expect(host.frames[1].capabilities).toEqual(['extension_events', 'question', 'media_placeholders', 'custom_capability']);
+    expect(host.frames[1].capabilities).toEqual(['extension_events', 'question', 'custom_capability']);
     expect(host.frames[0].observe).toBe(true);
     expect(host.frames.some((frame) => 'promptSurface' in frame)).toBe(false);
   });

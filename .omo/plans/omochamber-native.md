@@ -100,7 +100,7 @@ Run `bunx oxlint` on exact authored/substantially rewritten JS/TS paths. Inspect
 
 Protocol/capability negotiation precedes attachment. Required host capabilities: multi_session, extension_events, session_context, session_kind; retention and prompt surface are separately negotiated. Native correlation ID, live routing handle, durable conversation ID and host instance ID are distinct.
 
-Use `get_protocol_info`, `set_client_info` with extension_events/question/media_placeholders, `list_sessions {include_workers:true}`, `open_session {sessionPath,retain_on_disconnect:true}`, `get_state`, `get_entries`, `get_available_models`, `get_commands`, `set_model`, thinking commands, prompt/steer/follow_up/abort/set_session_name, extension_request and extension_ui_response.
+Use `get_protocol_info`, `set_client_info` with extension_events/question, `list_sessions {include_workers:true}`, `open_session {sessionPath,retain_on_disconnect:true}`, `get_state`, `get_entries`, `get_available_models`, `get_commands`, `set_model`, thinking commands, prompt/steer/follow_up/abort/set_session_name, extension_request and extension_ui_response. Do not advertise media_placeholders while this version consumes inline image blocks; that optional native capability changes tool/history payloads to image_ref and requires an on-demand media consumer.
 
 New sessions use a server-generated durableSessionId, cwd, kind interactive, auto_title false and retention true. Do not change promptSurface on foreign attachment. Never open a second writer against a terminal-owned transcript; terminal sessions are visibly read-only.
 
