@@ -1,250 +1,76 @@
-# <picture><source media="(prefers-color-scheme: dark)" srcset="https://github.com/openchamber/openchamber/raw/HEAD/docs/references/badges/openchamber-logo-dark.svg"><img src="https://github.com/openchamber/openchamber/raw/HEAD/docs/references/badges/openchamber-logo-light.svg" width="32" height="32" align="absmiddle" /></picture> @openchamber/web
+# OmoChamber web
 
-[![GitHub stars](https://img.shields.io/github/stars/openchamber/openchamber?style=flat&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgZmlsbD0iI2YxZWNlYyIgdmlld0JveD0iMCAwIDI1NiAyNTYiPjxwYXRoIGQ9Ik0yMjkuMDYsMTA4Ljc5bC00OC43LDQyLDE0Ljg4LDYyLjc5YTguNCw4LjQsMCwwLDEtMTIuNTIsOS4xN0wxMjgsMTg5LjA5LDczLjI4LDIyMi43NGE4LjQsOC40LDAsMCwxLTEyLjUyLTkuMTdsMTQuODgtNjIuNzktNDguNy00MkE4LjQ2LDguNDYsMCwwLDEsMzEuNzMsOTRMOTUuNjQsODguOGwyNC42Mi01OS42YTguMzYsOC4zNiwwLDAsMSwxNS40OCwwbDI0LjYyLDU5LjZMMjI0LjI3LDk0QTguNDYsOC40NiwwLDAsMSwyMjkuMDYsMTA4Ljc5WiIgb3BhY2l0eT0iMC4yIj48L3BhdGg%2BPHBhdGggZD0iTTIzOS4xOCw5Ny4yNkExNi4zOCwxNi4zOCwwLDAsMCwyMjQuOTIsODZsLTU5LTQuNzZMMTQzLjE0LDI2LjE1YTE2LjM2LDE2LjM2LDAsMCwwLTMwLjI3LDBMOTAuMTEsODEuMjMsMzEuMDgsODZhMTYuNDYsMTYuNDYsMCwwLDAtOS4zNywyOC44Nmw0NSwzOC44M0w1MywyMTEuNzVhMTYuMzgsMTYuMzgsMCwwLDAsMjQuNSwxNy44MkwxMjgsMTk4LjQ5bDUwLjUzLDMxLjA4QTE2LjQsMTYuNCwwLDAsMCwyMDMsMjExLjc1bC0xMy43Ni01OC4wNyw0NS0zOC44M0ExNi40MywxNi40MywwLDAsMCwyMzkuMTgsOTcuMjZabS0xNS4zNCw1LjQ3LTQ4LjcsNDJhOCw4LDAsMCwwLTIuNTYsNy45MWwxNC44OCw2Mi44YS4zNy4zNywwLDAsMS0uMTcuNDhjLS4xOC4xNC0uMjMuMTEtLjM4LDBsLTU0LjcyLTMzLjY1YTgsOCwwLDAsMC04LjM4LDBMNjkuMDksMjE1Ljk0Yy0uMTUuMDktLjE5LjEyLS4zOCwwYS4zNy4zNywwLDAsMS0uMTctLjQ4bDE0Ljg4LTYyLjhhOCw4LDAsMCwwLTIuNTYtNy45MWwtNDguNy00MmMtLjEyLS4xLS4yMy0uMTktLjEzLS41cy4xOC0uMjcuMzMtLjI5bDYzLjkyLTUuMTZBOCw4LDAsMCwwLDEwMyw5MS44NmwyNC42Mi01OS42MWMuMDgtLjE3LjExLS4yNS4zNS0uMjVzLjI3LjA4LjM1LjI1TDE1Myw5MS44NmE4LDgsMCwwLDAsNi43NSw0LjkybDYzLjkyLDUuMTZjLjE1LDAsLjI0LDAsLjMzLjI5UzIyNCwxMDIuNjMsMjIzLjg0LDEwMi43M1oiPjwvcGF0aD48L3N2Zz4%3D&logoColor=FFFCF0&labelColor=100F0F&color=66800B)](https://github.com/openchamber/openchamber/stargazers)
-[![GitHub release](https://img.shields.io/github/v/release/openchamber/openchamber?style=flat&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgZmlsbD0iI2YxZWNlYyIgdmlld0JveD0iMCAwIDI1NiAyNTYiPjxwYXRoIGQ9Ik0xMjgsMTI5LjA5VjIzMmE4LDgsMCwwLDEtMy44NC0xbC04OC00OC4xOGE4LDgsMCwwLDEtNC4xNi03VjgwLjE4YTgsOCwwLDAsMSwuNy0zLjI1WiIgb3BhY2l0eT0iMC4yIj48L3BhdGg%2BPHBhdGggZD0iTTIyMy42OCw2Ni4xNSwxMzUuNjgsMThhMTUuODgsMTUuODgsMCwwLDAtMTUuMzYsMGwtODgsNDguMTdhMTYsMTYsMCwwLDAtOC4zMiwxNHY5NS42NGExNiwxNiwwLDAsMCw4LjMyLDE0bDg4LDQ4LjE3YTE1Ljg4LDE1Ljg4LDAsMCwwLDE1LjM2LDBsODgtNDguMTdhMTYsMTYsMCwwLDAsOC4zMi0xNFY4MC4xOEExNiwxNiwwLDAsMCwyMjMuNjgsNjYuMTVaTTEyOCwzMmw4MC4zNCw0NC0yOS43NywxNi4zLTgwLjM1LTQ0Wk0xMjgsMTIwLDQ3LjY2LDc2bDMzLjktMTguNTYsODAuMzQsNDRaTTQwLDkwbDgwLDQzLjc4djg1Ljc5TDQwLDE3NS44MlptMTc2LDg1Ljc4aDBsLTgwLDQzLjc5VjEzMy44MmwzMi0xNy41MVYxNTJhOCw4LDAsMCwwLDE2LDBWMTA3LjU1TDIxNiw5MHY4NS43N1oiPjwvcGF0aD48L3N2Zz4%3D&logoColor=FFFCF0&labelColor=100F0F&color=205EA6)](https://github.com/openchamber/openchamber/releases/latest)
-[![Discord](https://img.shields.io/badge/Discord-join.svg?style=flat&labelColor=100F0F&color=8B7EC8&logo=discord&logoColor=FFFCF0)](https://discord.gg/ZYRSdnwwKA)
+This package owns the local native backend, browser entrypoint and `omochamber` CLI. `@openchamber/web` remains the internal package name. See the [root README](../../README.md) for prerequisites and product scope.
 
-Run [OpenCode](https://opencode.ai) in your browser. Install the CLI, open `localhost:3000`, done. Works on desktop browsers, tablets, and phones as a PWA.
+## Start
 
-Full project overview, screenshots, and all features: [github.com/openchamber/openchamber](https://github.com/openchamber/openchamber)
+From the repository root, using existing `packages/web/dist` assets:
 
-## Install
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/openchamber/openchamber/main/scripts/install.sh | bash
+```sh
+bun packages/web/bin/omochamber.js --help
+bun packages/web/bin/omochamber.js --help --json
+bun run start:web --port 0 --json
 ```
 
-Or install manually: `bun add -g @openchamber/web` (or npm, pnpm, yarn).
+The JSON result contains `runtime: "omo"`, the selected port and listening URL. Open that URL locally. `--quiet` prints only the URL. Without either flag, non-TTY output is also the URL.
 
-> **Prerequisites:** [OpenCode CLI](https://opencode.ai) installed, Node.js 22+.
+For a direct invocation with browser assets:
 
-## Usage
-
-```bash
-openchamber                          # Start on port 3000
-openchamber --port 8080              # Custom port
-openchamber --lan --port 3000        # Listen on LAN (0.0.0.0)
-openchamber --ui-password secret     # Password-protect UI
-openchamber startup enable           # Start at login as a native service
-OPENCHAMBER_UI_PASSWORD=secret openchamber startup enable # Save service password env
-openchamber startup status           # Show startup service status
-openchamber startup disable          # Remove startup service
-openchamber tunnel help              # Tunnel lifecycle commands
-openchamber tunnel providers         # Show provider capabilities
-openchamber tunnel profile add --provider cloudflare --mode managed-remote --name prod-main --hostname app.example.com --token <token>
-openchamber tunnel start --profile prod-main
-openchamber tunnel start --provider cloudflare --mode quick --qr
-openchamber tunnel start --provider cloudflare --mode managed-local --config ~/.cloudflared/config.yml
-openchamber tunnel status --all      # Show tunnel state across instances
-openchamber tunnel stop --port 3000  # Stop tunnel only (server stays running)
-openchamber connect-url --port 3000  # Add this server to OpenChamber Desktop
-openchamber connect-url --server http://host:3000 --qr
-openchamber connect-url --port 3000 --qr
-openchamber logs                     # Follow latest instance logs
-OPENCODE_PORT=4096 OPENCODE_SKIP_START=true openchamber                    # Connect to external OpenCode server
-OPENCODE_HOST=https://myhost:4096 OPENCODE_SKIP_START=true openchamber  # Connect via custom host/HTTPS
-openchamber stop                     # Stop server
-openchamber update                   # Update to latest version
+```sh
+bun packages/web/bin/omochamber.js serve --ui-dir packages/web/dist --port 0 --quiet
 ```
 
-`startup enable` snapshots your current environment into the native service so startup behaves like you launched `openchamber` from the same shell. This preserves provider tokens, PATH, SSH agent settings, and other CLI auth/config env vars. Use `--no-env-snapshot` for a minimal service env.
+The CLI accepts only `serve`, which is also the default. It runs in the foreground; Ctrl+C or SIGTERM stops owned HTTP and PTY resources. It has no daemon, update, remote-connect or lifecycle subcommands. Omitting `--ui-dir` from the direct CLI serves APIs without browser assets.
 
-When OpenChamber launches the local OpenCode server, it also registers a native
-`openchamber` agent tool for project, session, and scheduled-task orchestration.
-The tool is not injected when connecting to an external OpenCode server.
-Behavior settings can optionally inject a managed system-prompt optimizer on
-the next OpenCode restart. It is disabled by default and is not available for
-external OpenCode servers.
+## Configuration
 
-### Tunnel behavior notes
+| Option or environment | Meaning |
+| --- | --- |
+| `--port` | Default `3000`; `0` selects a free port |
+| `--host` | Default `127.0.0.1`; only loopback addresses are accepted |
+| `--data-dir`, `OMOCHAMBER_DATA_DIR` | App data directory, default `~/.config/omochamber` |
+| `--ui-dir` | Existing native browser build directory |
+| `--ui-password`, `OMOCHAMBER_UI_PASSWORD` | Optional browser login password |
+| `--omo-binary`, `OMO_BIN` | Existing installed OMO executable |
+| `--bun-binary` | Existing Bun executable used for native hosts |
+| `--agent-dir` | Existing OMO agent directory |
 
-- One active tunnel per running OpenChamber instance (port).
-- Starting a different tunnel mode/provider on the same instance replaces the active tunnel.
-- Replacing or stopping a tunnel revokes existing connect links and invalidates remote tunnel sessions.
-- Connect links are one-time tokens; generating a new link revokes the previous unused link.
+Without `--agent-dir`, resolution checks `OMO_CODING_AGENT_DIR`, `SENPI_CODING_AGENT_DIR`, then `PI_CODING_AGENT_DIR`, and defaults to `~/.omo/agent`. The resolver validates installed package metadata and the matching Senpi snapshot. It never creates or repairs that snapshot.
 
-### Connect other OpenChamber apps
+Configure providers and credentials in the separate OMO installation. Browser settings expose appearance only; they don't expose runtime paths or provider secrets.
 
-Use `connect-url` when a web/API server should be added to OpenChamber Desktop or another OpenChamber app. If no server is running on the selected port, OpenChamber starts one first.
+Password login uses same-origin, port-scoped HttpOnly cookies. Issued sessions are memory-only and expire or disappear on server restart. With no password, local access is unlocked. Loopback binding still enforces Host and Origin checks, refuses forwarded-host/protocol claims, and requires Origin on mutations. Terminal WebSockets use the authenticated transport gate too. This isn't a remote-access configuration.
 
-```bash
-openchamber connect-url --port 3000
-openchamber connect-url --port 3000 --qr
-openchamber connect-url --port 3000 --json
-openchamber connect-url --port 3000 --name "Workstation"
-openchamber connect-url --port 3000 --lan --server http://workstation.local:3000 --qr
-```
+## Native ownership
 
-### Headless/API-only server for Desktop
+The server talks directly to native JSONL protocol version 1 over local sockets. Socket addresses, routing handles and native store roots stay server-side. No app-server, CBOR client or OpenCode controller starts on this path.
 
-Use this on a remote machine when you want OpenChamber running as a web/API server, then connect to it from OpenChamber Desktop on another machine:
+Discovery observes existing registered hosts and shards. Attachment follows the actual owner; terminal-owned sessions are read-only. An offline transcript can reopen only when discovery establishes safe ownership. Conflicts and uncertain hosts are refused, not replaced.
 
-```bash
-openchamber connect-url --port 3000 --api-only --lan --server http://workstation.local:3000 --qr --ui-password your-password
-```
+New sessions use an app endpoint at `<data-dir>/omo.sock`. When needed, the server invokes the existing Senpi CLI's `host ensure` with the unchanged OMO launch spec and `--policy never`. It doesn't invoke the OMO preparation launcher. Hosts retain sessions after disconnect, including when this web server stops.
 
-`--api-only` starts API routes without serving browser UI assets. `--lan` binds the server so other machines can reach it. `--server` is the address saved into the Desktop connection link. `--ui-password` protects browser access if UI routes are enabled elsewhere; the generated client token is what Desktop uses for API access.
+OMO owns goal continuation, counters, tasks, todo state and DAG execution. Goal actions use the native `/goal` command and confirm the resulting sidecar, rather than treating acknowledgment as completion. Task output/send/cancel stays scoped to the selected native parent. Todo and DAG views are read-only.
 
-This creates a remote client token and prints an `openchamber://connect?...` link. The link contains the server URL, token, label, and payload version. In OpenChamber Desktop, paste it in **Settings -> Remote Instances -> Direct Instances -> Import Link** to add that server as an Instance.
+Snapshots restore the active branch and projections before buffered events apply. Failed or partial reads keep the last valid data visibly incomplete or unavailable. An HTTP `202` accepts a command; a correlated event supplies its result. An uncertain submission is never automatically replayed.
 
-If the server was started with `--lan` or `--host 0.0.0.0`, `connect-url` automatically advertises a detected LAN IP instead of `127.0.0.1`. Use `--server <url>` when you want to advertise a specific DNS name, Tailscale address, reverse proxy URL, or HTTPS endpoint.
+App-owned `settings.json` stores projects and appearance. `worktrees/` holds app-created worktrees; `create-requests/` holds creation intent markers that prevent duplicate creates after adapter loss. Native transcripts and goal/task/DAG records remain under OMO ownership. Removing a project registration doesn't delete native history. Worktree removal refuses dirty directories, directories in use and uncertain ownership.
 
-If you are exposing the server beyond localhost, start it with a password:
+## In-process server
 
-```bash
-openchamber serve --lan --port 3000 --ui-password your-password
-```
+`server/index.js` exports `startWebUiServer`. Importing it doesn't start a listener. It delegates to `server/native.js` and defaults browser assets to the web package's `dist`.
 
-Generating a client token does not automatically password-protect the hosted browser UI. `--ui-password` protects browser access; the client token lets another OpenChamber app connect to this server.
+The returned `NativeServerHandle` has `runtime: 'omo'`, `expressApp`, `httpServer`, `getPort()`, `isReady()` and idempotent `stop()`. Electron uses this same handle in its main process.
 
-<details>
-<summary>Connect to external OpenCode server</summary>
+`isReady()` and `/health` describe the web listener. `/api/omo/status` describes discovered native availability, so a ready web server needn't have an available native host. `stop()` closes owned HTTP connections, PTYs, projection watches and attachments. It never signals hosts, deletes transcripts or repairs native stores.
 
-```bash
-OPENCODE_PORT=4096 OPENCODE_SKIP_START=true openchamber
-OPENCODE_HOST=https://myhost:4096 OPENCODE_SKIP_START=true openchamber
-```
+See [backend documentation](server/lib/omo/DOCUMENTATION.md) for module exports and [UI documentation](../ui/src/omo/DOCUMENTATION.md) for browser contracts.
 
-| Variable | Description |
-|----------|-------------|
-| `OPENCODE_HOST` | Full base URL of external server (overrides `OPENCODE_PORT`) |
-| `OPENCODE_PORT` | Port of external server |
-| `OPENCODE_SKIP_START` | Skip starting embedded OpenCode server |
-| `OPENCHAMBER_OPENCODE_HOSTNAME` | Bind hostname for managed OpenCode server (default: `127.0.0.1`, use `0.0.0.0` for LAN/remote access — trusted networks only). Invalid values are rejected with an error and fall back to loopback |
-| `OPENCHAMBER_HOST` | Bind hostname for the OpenChamber web server (default: `127.0.0.1`; use `0.0.0.0` for LAN/remote access — trusted networks only) |
-| `OPENCHAMBER_VERBOSE_REQUEST_LOGS` | Set to `true` to log every HTTP request; disabled by default to keep user logs small |
-| `OPENCHAMBER_SKIP_API_COMPRESSION` | Set to `true` to disable gzip compression for `/api/*` responses |
-| `OPENCHAMBER_COMPRESS_API` | Set to `true` to force `/api/*` compression, or `false` to disable it. Desktop runtime disables API compression by default to reduce local sidecar CPU use |
-| `OPENCHAMBER_FS_UPLOAD_MAX_BYTES` | Maximum file upload size in bytes (default: 100 MiB) |
-| `OPENCHAMBER_TERMINAL_SHELL` | Preferred terminal shell executable used by the `Auto` setting before platform defaults |
+## Development and limits
 
-</details>
+`bun run dev` at the repository root starts the native API and Vite HMR UI on loopback. `bun run build:web` builds the native browser entrypoint, `src/omo-main.tsx`. Default product builds neither prepare OMO nor stage OpenCode binaries.
 
-<details>
-<summary>Bind managed OpenCode to LAN / Tailscale</summary>
-
-```bash
-OPENCHAMBER_OPENCODE_HOSTNAME=0.0.0.0 openchamber --port 3000
-```
-
-**Security note:** binding to `0.0.0.0` exposes the server on all network interfaces — use only on trusted networks and protect with firewall rules or `--ui-password`.
-
-</details>
-
-**Optional env vars:**
-```yaml
-environment:
-  UI_PASSWORD: your_secure_password
-  OPENCHAMBER_TUNNEL_MODE: quick # quick | managed-remote | managed-local
-  OPENCHAMBER_TUNNEL_PROVIDER: cloudflare
-```
-
-For `managed-remote` mode, also set:
-
-```yaml
-environment:
-  OPENCHAMBER_TUNNEL_MODE: managed-remote
-  OPENCHAMBER_TUNNEL_HOSTNAME: app.example.com
-  OPENCHAMBER_TUNNEL_TOKEN: <token>
-```
-
-For `managed-local` mode, you can set:
-
-```yaml
-environment:
-  OPENCHAMBER_TUNNEL_MODE: managed-local
-  OPENCHAMBER_TUNNEL_CONFIG: /home/openchamber/.cloudflared/config.yml
-```
-
-Managed-local path note: `OPENCHAMBER_TUNNEL_CONFIG` must use a container path under `/home/openchamber/...`. If the config file references `credentials-file`, ensure that JSON path is also mounted and reachable inside the container.
-
-**Data directory:** mount `data/` for persistent storage. Ensure permissions:
-```bash
-mkdir -p data/openchamber data/opencode/share data/opencode/config data/ssh
-chown -R 1000:1000 data/
-```
-
-</details>
-
-<details>
-<summary>Background & daemon mode</summary>
-
-```bash
-openchamber             # Runs in background by default
-openchamber stop        # Stop background server
-```
-
-</details>
-
-<details>
-<summary>systemd service (VPN / LAN access)</summary>
-
-Use `--foreground` to keep the CLI process alive so systemd (or any other process manager) can track and restart it. Combine with `OPENCODE_HOST` to connect to an OpenCode instance running as a separate service.
-
-**`~/.config/systemd/user/opencode.service`**
-```ini
-[Unit]
-Description=OpenCode Server
-
-[Service]
-Type=simple
-ExecStart=opencode serve --port 4095
-Environment="PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/home/YOU/.local/bin:/home/YOU/.npm-global/bin:/usr/local/bin:/usr/bin:/bin"
-Environment=SSH_AUTH_SOCK=%t/ssh-agent.socket
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=default.target
-```
-
-> **Why set `PATH` and `SSH_AUTH_SOCK`?**
-> systemd user services start with a minimal environment — no shell profile is sourced.
-> Without an explicit `PATH`, OpenCode won't find tools installed via Homebrew, npm, or `~/.local/bin`.
-> Without `SSH_AUTH_SOCK`, git operations over SSH (push, pull, clone) will fail.
-> `%t` expands to `$XDG_RUNTIME_DIR` (e.g. `/run/user/1000`), where most SSH agents write their socket.
-
-**`~/.config/systemd/user/openchamber.service`**
-```ini
-[Unit]
-Description=OpenChamber Web Server
-After=opencode.service
-
-[Service]
-Type=simple
-ExecStart=openchamber serve --port 3000 --host 0.0.0.0 --ui-password your-password --foreground
-Environment="OPENCODE_HOST=http://localhost:4095"
-Environment="OPENCODE_SKIP_START=true"
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=default.target
-```
-
-```bash
-systemctl --user daemon-reload
-systemctl --user enable --now opencode openchamber
-```
-
-`--host 0.0.0.0` is required to listen on all interfaces (the default is `127.0.0.1`). Use `--host <ip>` or `OPENCHAMBER_HOST=<ip>` to bind to a specific interface instead.
-
-</details>
-
-## What makes the web version special
-
-- **Remote access** - Cloudflare tunnel with QR onboarding. Scan from your phone, start coding.
-- **Mobile-first PWA** - optimized chat controls, keyboard-safe layouts, drag-to-reorder projects
-- **Background notifications** - know when your agent finishes, even from another tab
-- **Self-update** - update and restart from the UI, server settings stay intact
-- **Cross-tab tracking** - session activity stays in sync across browser tabs
-
-- Cloudflare tunnel access with quick, managed-remote, and managed-local modes
-- One-scan onboarding with tunnel QR + password URL helpers
-- Mobile-first experience: optimized chat controls, keyboard-safe layouts, and attachment-friendly UI
-- Background notifications plus reliable cross-tab session activity tracking
-- Built-in self-update + restart flow that keeps your server settings intact
+Local web and local Electron are the product targets. VS Code, native mobile, remote/SSH/tunnels/relay/pairing, updater workflows, multi-run/fusion/scheduling and advanced OpenCode settings are deferred. Legacy routes and UI modules remain dormant; they don't provide dual-engine operation or history migration.
 
 ## License
 
-MIT
+The OpenChamber [MIT license and copyright notice](../../LICENSE) remain intact. Senpi retains its upstream MIT notices. OMO is separately installed under its Sustainable Use License; this package doesn't bundle it or grant new redistribution rights.

@@ -20,6 +20,18 @@ If these sources materially conflict, stop and resolve the conflict instead of s
 Do not start editing when a matching skill or required reference has not been
 read. Skill loading is a required part of the task, not optional guidance.
 
+## Native fork routing
+
+The default runnable fork is OmoChamber, using local web and local Electron with the existing installed OMO 5.1.6/Senpi 2026.9.30. Native entrypoints take precedence over the upstream OpenCode and all-platform routing below; that routing describes dormant upstream modules, not native product support.
+
+- For native runtime resolution, JSONL transport, host/session ownership, auth, goal/task controls or recovery, read `packages/web/server/lib/omo/DOCUMENTATION.md` and `packages/web/README.md`. Default startup is `packages/web/server/index.js` -> `native.js`; the CLI is `packages/web/bin/omochamber.js`.
+- For native browser contracts, state, chat, panels or workspace tools, read `packages/ui/src/omo/DOCUMENTATION.md`. Web mounts `OmoApp` through `packages/web/src/omo-main.tsx` and `omo-runtime.ts`; keep the settled `NativeClient`/`NativeStore` props.
+- For local desktop startup, IPC, bundling or cleanup, read `packages/electron/README.md`. Use `packages/electron/omo/entry.mjs`, its main/preload modules and the package's `native:*` scripts.
+
+Reuse the installed runtime and unchanged launch spec. Native transport is direct JSONL, not app-server/CBOR; native OMO remains the goal/work authority. Default commands must neither prepare/rebuild/install OMO/Senpi nor stage OpenCode binaries.
+
+VS Code, native mobile, remote/SSH/tunnels/relay/pairing, updater, multi-run/fusion/scheduling and advanced OpenCode workflows are deferred. Keep legacy code dormant unless explicitly maintaining it; don't infer dual-engine support or history migration from its presence.
+
 ## Runtime Boundaries
 
 - `packages/ui`: shared React UI, state, sync, and runtime contracts.
