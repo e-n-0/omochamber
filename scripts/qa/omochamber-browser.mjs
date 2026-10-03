@@ -23,6 +23,7 @@ const help = `OmoChamber browser QA
 Actions: {op:"click",selector}, {op:"fill",selector,value},
 {op:"type",selector,value},
 {op:"press",selector,key}, {op:"wait",selector,state?},
+{op:"wheel",selector,deltaY},
 {op:"text",selector,value,count?}, {op:"scroll",selector},
 {op:"capture",name}, {op:"reload"}.
 Only startup/layout are run without mutation authorization. Custom scenarios
@@ -34,6 +35,7 @@ const actionSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('fill'), selector: z.string().min(1), value: z.string() }).strict(),
   z.object({ op: z.literal('type'), selector: z.string().min(1), value: z.string() }).strict(),
   z.object({ op: z.literal('press'), selector: z.string().min(1), key: z.string().min(1) }).strict(),
+  z.object({ op: z.literal('wheel'), selector: z.string().min(1), deltaY: z.number().finite() }).strict(),
   z.object({ op: z.literal('wait'), selector: z.string().min(1), state: z.enum(['visible', 'hidden']).default('visible') }).strict(),
   z.object({ op: z.literal('text'), selector: z.string().min(1), value: z.string(), count: z.number().int().positive().default(1) }).strict(),
   z.object({ op: z.literal('scroll'), selector: z.string().min(1) }).strict(),
@@ -153,7 +155,7 @@ export async function runBrowserQa(argv = process.argv.slice(2)) {
     assert(values['session-key'], 'A parent-provisioned --session-key is required');
     await navigation();
     await click(`[data-session-key=${JSON.stringify(values['session-key'])}]`);
-    await page.locator('[data-testid="omo-composer"]:not([disabled])').waitFor({ state: 'visible', timeout: 30_000 });
+    await page.locator('[data-testid="omo-composer"] .cm-content[contenteditable="true"]').waitFor({ state: 'visible', timeout: 30_000 });
   };
   try {
     const omowright = await import(pathToFileURL(path.resolve(entry)).href);
@@ -202,9 +204,9 @@ export async function runBrowserQa(argv = process.argv.slice(2)) {
         if (await page.locator('[data-testid="omo-panels-toggle"]').getAttribute('aria-pressed') === 'true') {
           await click('[data-testid="omo-panels-toggle"]');
         }
-        await page.locator('#omo-panels').waitFor({ state: 'hidden' });
+        await page.locator('#omo-panels aside[aria-hidden="false"]').waitFor({ state: 'hidden' });
         await click('[data-testid="omo-panels-toggle"]');
-        await page.locator('#omo-panels').waitFor({ state: 'visible' });
+        await page.locator('#omo-panels aside[aria-hidden="false"]').waitFor({ state: 'visible' });
         await capture(`${theme}-panels`);
         await click('[data-testid="omo-panels-toggle"]');
       }
@@ -216,7 +218,7 @@ export async function runBrowserQa(argv = process.argv.slice(2)) {
         await step(`send ${marker}`, { op: 'sentinel', marker }, async () => {
           const reply = await armTextWait(page, assistantText, marker, 1, true);
           assert.equal(reply.initialCount, 0, 'QA sentinel already exists; use a fresh owned session');
-          await page.locator('[data-testid="omo-composer"]').fill(`Reply with exactly ${marker}.`);
+          await page.locator('[data-testid="omo-composer"] .cm-content[contenteditable="true"]').fill(`Reply with exactly ${marker}.`);
           await page.locator('[data-testid="omo-send"]').click();
           await reply.wait();
           await page.locator('[data-testid="omo-abort"]').waitFor({ state: 'hidden', timeout: 120_000 });
@@ -258,7 +260,18 @@ export async function runBrowserQa(argv = process.argv.slice(2)) {
               if (line) await page.keyboard.type(line);
             }
             break;
-          case 'press': await page.locator(action.selector).press(action.key); break;
+            case 'press': await page.locator(action.selector).press(action.key); break;
+            case 'wheel':
+              await page.locator(action.selector).hover();
+              {
+                const target = await page.evaluate(`(() => {
+                  const rect = document.querySelector(${JSON.stringify(action.selector)}).getBoundingClientRect();
+                  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                })()`);
+                await page.mouse.move(target.x, target.y);
+              }
+              await page.mouse.wheel(0, action.deltaY);
+              break;
           case 'wait': await page.locator(action.selector).waitFor({ state: action.state, timeout: 120_000 }); break;
           case 'text': await waitForText(page, action.selector, action.value, action.count); break;
           case 'scroll': await page.evaluate(`(() => {
