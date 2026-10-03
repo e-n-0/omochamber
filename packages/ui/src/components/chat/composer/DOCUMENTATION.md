@@ -7,6 +7,45 @@ everything between typing and sending.
 own state and wires these modules together; it should not grow logic that
 belongs to one of them.
 
+## Shared original presentation
+
+The native and original chat controllers use the same JSX under
+`../presentation/`. `ChatTranscriptView<T>` owns LegendList rendering and
+scroll maintenance; callers supply stable entry keys, rows, live footer content,
+and measured composer clearance. `ChatMessageView` and its text views keep the
+original bubble, column, and reasoning-scroll geometry.
+
+`ChatMarkdownView` owns the original block rendering and morphdom pipeline.
+The original renderer supplies its decoration context and interactions. Native
+output uses `safeLinks` with image labels: application/file links are inert,
+decoration media is not fetched, and negotiated native image blocks retain
+their existing adapter. The shared view does not import filesystem probes or
+legacy runtime asset handlers.
+
+`ChatComposerFormView`, `ChatComposerView`, `ChatComposerEditorView`, and
+`ChatComposerFooterView` retain the original form, glass shell, editor spacing,
+and footer geometry. The editor view wraps the actual `ComposerEditor`; native
+controllers reuse `ComposerActionButtons` with explicit disabled flags and
+optional test IDs. `ChatModelControlsView`, `ChatModelControlTriggerView`,
+and `ChatModelPickerView` expose presentation slots and value/option callbacks
+without resolving models or thinking levels.
+
+`NativeChat` keeps its `{ client, store, sessionKey }` contract. Native
+controllers own draft text, busy prompt/steer/follow-up selection, read-only
+guards, and request correlation. Model, thinking, prompt, and abort locks are
+set synchronously and retained through accepted/uncertain results; only a
+correlated success or failure releases an intent for deliberate retry. No
+shared presentation component starts legacy session, SDK, or API controllers.
+
+Local native web and Electron consume these views. Dormant VS Code, hosted
+mobile, and Capacitor controllers gain no native workflow support. Surrounding
+chat/composer clearance and the work-status slot remain host-owned.
+
+Focused native DOM tests dispatch real CodeMirror transactions, run the actual
+LegendList with deterministic fixture geometry, and await observable DOM/state
+transitions. Browser worker highlighting and real viewport/scroll behavior
+remain integration and GUI checks.
+
 `ChatContainer.tsx` keeps one `ChatInput` mounted while a new-session draft
 becomes its first session. Draft-only UI first fades for 120ms while the editor
 stays in place. The parent then moves the editor to its final session position

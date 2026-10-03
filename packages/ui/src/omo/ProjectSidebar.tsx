@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Icon } from '@/components/icon/Icon';
@@ -8,7 +9,7 @@ import { nativeErrorCopy } from './error-copy';
 import { NativeClientError } from './client';
 import { useNativeDesktop } from './desktop/context';
 
-export function ProjectSidebar({ projects, projectId, directory, loading, error, onSelect, onAdd, onRename, onRefresh }: {
+export function ProjectSidebar({ projects, projectId, directory, loading, error, onSelect, onAdd, onRename, onRefresh, renderNavigation }: {
   readonly projects: readonly NativeProject[];
   readonly projectId: string | null;
   readonly directory: string | null;
@@ -18,6 +19,7 @@ export function ProjectSidebar({ projects, projectId, directory, loading, error,
   readonly onAdd: (input: ProjectInput) => Promise<void>;
   readonly onRename: (project: NativeProject, name: string) => Promise<void>;
   readonly onRefresh: () => void;
+  readonly renderNavigation?: (editProject: (project: NativeProject) => void) => ReactNode;
 }) {
   const { t } = useI18n();
   const desktop = useNativeDesktop();
@@ -28,6 +30,13 @@ export function ProjectSidebar({ projects, projectId, directory, loading, error,
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<Error | null>(null);
   const [pickerError, setPickerError] = useState<Error | null>(null);
+  const editProject = (project: NativeProject) => {
+    setEditing(project.id);
+    setAdding(false);
+    setName(project.name);
+    setFailure(null);
+    setPickerError(null);
+  };
   const picking = useRef(false);
   const chooseFolder = async () => {
     if (!desktop || busy || picking.current) return;
@@ -79,7 +88,7 @@ export function ProjectSidebar({ projects, projectId, directory, loading, error,
     {!loading && !error && projects.length === 0 && <p className="typography-meta text-muted-foreground">
       {t('mobile.sessions.empty.noProjectsDescription')}
     </p>}
-    <ul className="space-y-2">
+    {renderNavigation ? renderNavigation(editProject) : <ul className="space-y-2">
       {projects.map((project) => <li key={project.id} className="min-w-0">
         <div className="flex items-center gap-1">
           <Button variant="chip" size="sm" className="min-w-0 flex-1 justify-start" data-project-id={project.id}
@@ -89,7 +98,7 @@ export function ProjectSidebar({ projects, projectId, directory, loading, error,
           </Button>
           <Button variant="ghost" size="xs" aria-label={t('mobile.sessions.editProjectAria', { label: project.name })}
             data-project-rename={project.id} disabled={busy}
-            onClick={() => { setEditing(project.id); setAdding(false); setName(project.name); setFailure(null); setPickerError(null); }}>
+            onClick={() => editProject(project)}>
             <Icon name="edit" className="size-4" />
           </Button>
         </div>
@@ -102,7 +111,7 @@ export function ProjectSidebar({ projects, projectId, directory, loading, error,
           </Button>)}
         </div>}
       </li>)}
-    </ul>
+    </ul>}
     {(adding || editing) && <form className="space-y-2 border-t border-border pt-3" data-testid="omo-project-form"
       onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       {adding && <Input autoFocus value={path} onChange={(event) => setPath(event.currentTarget.value)} disabled={busy}

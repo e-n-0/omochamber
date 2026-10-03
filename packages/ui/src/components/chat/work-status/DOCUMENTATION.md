@@ -4,6 +4,33 @@ A card rendered to the right of the transcript inside `ChatContainer`. It
 reports the state of the current session, its branch, its quotas and its
 subagents.
 
+## Shared presentation ownership
+
+`WorkStatusFrame` owns the original card geometry, collapse lifetime, overlay
+dismissal and per-session scroll lifecycle. `WorkStatusPresentation` owns its
+`ScrollShadow` scroller. Its section children remain direct DOM siblings.
+`WorkStatusSectionView` and `WorkStatusReadouts` hold the original section,
+row, value and action JSX without session, SDK or UI-store controllers.
+
+The original `WorkStatusPanel` still owns its loaders, section preferences,
+presence reporting and settings dialog, but renders through these views.
+`WorkStatusPrimitives` retains only the legacy collapsed-preference adapter
+and re-exports the shared primitives. `useWorkStatusVisibility` retains the
+legacy store/measurement policy; its width constants live in the clean
+`workStatusVisibility` module.
+
+Native `NativeWorkStatusPanel` imports the clean frame and presentation
+directly. It receives controlled visibility/overlay props, and renders the
+existing native goal, task, todo and DAG selectors inside the original
+scroller. It has no legacy loaders, section registry or settings controls.
+Native action authorization, parent-session correlation, output cancellation
+and recorded-state distinctions remain with the native panel modules.
+Native consumers opt into `WorkStatusFrame.retainContent`: hiding the card,
+yielding to context, or switching inline/overlay placement keeps their drafts
+and loaded output mounted. A hidden frame is inert immediately, and retained
+sections continue to follow native ownership. The default legacy lifecycle
+still unmounts content after the 200 ms collapse transition.
+
 ## Structure
 
 Every readout is a **labelled row**: icon, name, trailing value. A number

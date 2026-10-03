@@ -2,6 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import type { CSSProperties } from 'react';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { MainLayoutView } from '@/components/layout/MainLayoutView';
+import { HeaderView } from '@/components/layout/HeaderView';
+import { HeaderTitleView } from '@/components/layout/HeaderTitleView';
+import { SidebarView } from '@/components/layout/SidebarView';
+import { SidebarTopBar } from '@/components/layout/SidebarTopBar';
+import { TitlebarLeftControlsView } from '@/components/layout/TitlebarLeftControlsView';
+import { ContextPanelRailItemView, ContextPanelRailView } from '@/components/layout/ContextPanelRailView';
+import { WORK_STATUS_REQUIRED_ROW_WIDTH } from '@/components/chat/work-status/workStatusVisibility';
 import { Icon } from '@/components/icon/Icon';
 import type { IconName } from '@/components/icon/icons';
 import { useI18n } from '@/lib/i18n';
@@ -15,14 +24,14 @@ import { OmoAppearanceProvider } from './AppearanceProvider';
 import { useOmoAppearance } from './appearance/context';
 import { AuthGate } from './AuthGate';
 import { ProjectSidebar } from './ProjectSidebar';
-import { SessionSidebar } from './SessionSidebar';
 import { NativeChat } from './chat/NativeChat';
 import { NativeDialogs } from './chat/NativeDialogs';
 import { useNativeSlice } from './chat/nativeHooks';
-import { NativePanels } from './panels/NativePanels';
-import { NativeWorkbench } from './workbench/NativeWorkbench';
 import { nativeErrorCopy } from './error-copy';
-import './omo.css';
+import { NativeNavigation } from './navigation/NativeNavigation';
+import { NativeWorkStatusPanel } from './panels/NativeWorkStatusPanel';
+import { NativeContextPanel } from './workbench/NativeContextPanel';
+import { useNativeDesktop } from './desktop/context';
 
 const tools = [
   { id: 'files', label: 'layout.mainTab.files', icon: 'folder' },
@@ -85,53 +94,6 @@ function useDirectoryLayout(directory: string | null) {
   return { preferences: state.preferences, error: state.error, update };
 }
 
-function NativeResizeHandle({ label, value, min, max, direction, onResize, testId, distanceScale = () => 1 }: {
-  readonly label: string; readonly value: number; readonly min: number; readonly max: number;
-  readonly direction: 1 | -1; readonly onResize: (width: number, persist: boolean) => void; readonly testId: string;
-  readonly distanceScale?: () => number;
-}) {
-  const resizing = useRef<AbortController | null>(null);
-  useEffect(() => () => resizing.current?.abort(), []);
-  const clamp = (width: number) => Math.min(max, Math.max(min, width));
-  return <div className="omo-resize-handle" role="separator" tabIndex={0} aria-orientation="vertical"
-    aria-label={label} aria-valuenow={Math.round(value)} aria-valuemin={min} aria-valuemax={max} data-testid={testId}
-    onKeyDown={(event) => {
-      const step = 16 * distanceScale();
-      const next = event.key === 'Home' ? min : event.key === 'End' ? max
-        : event.key === 'ArrowLeft' ? value - direction * step : event.key === 'ArrowRight' ? value + direction * step : null;
-      if (next === null) return;
-      event.preventDefault();
-      onResize(clamp(next), true);
-    }}
-    onPointerDown={(event) => {
-      if (event.button !== 0) return;
-      event.preventDefault();
-      event.currentTarget.focus();
-      resizing.current?.abort();
-      const abort = new AbortController();
-      resizing.current = abort;
-      const start = event.clientX;
-      const pointerId = event.pointerId;
-      const scale = distanceScale();
-      let width = value;
-      window.addEventListener('pointermove', (move) => {
-        if (move.pointerId !== pointerId) return;
-        width = clamp(value + (move.clientX - start) * direction * scale);
-        onResize(width, false);
-      }, { signal: abort.signal });
-      window.addEventListener('pointerup', (end) => {
-        if (end.pointerId !== pointerId) return;
-        onResize(width, true);
-        abort.abort();
-      }, { signal: abort.signal });
-      const cancel = () => { onResize(value, false); abort.abort(); };
-      window.addEventListener('pointercancel', (cancelled) => {
-        if (cancelled.pointerId === pointerId) cancel();
-      }, { signal: abort.signal });
-      window.addEventListener('blur', cancel, { signal: abort.signal });
-    }} />;
-}
-
 function NativeStatusBar({ store, sessionKey, status, error, onRefresh }: {
   readonly store: NativeStore; readonly sessionKey: string | null;
   readonly status: NativeStatus | null; readonly error: Error | null; readonly onRefresh: () => void;
@@ -189,6 +151,7 @@ function AppearanceNotice() {
 
 function NativeWorkspace({ client, store }: { readonly client: NativeClient; readonly store: NativeStore }) {
   const { t } = useI18n();
+  const desktop = useNativeDesktop();
   const [projects, setProjects] = useState<NativeProject[]>([]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [scope, setScope] = useState<{ readonly projectId: string; readonly directory: string } | null>(null);
@@ -202,7 +165,20 @@ function NativeWorkspace({ client, store }: { readonly client: NativeClient; rea
     return () => compactMedia.removeEventListener('change', changed);
   }, [compactMedia]), () => compactMedia.matches);
   const navigationOpen = compact ? mobileNavigationOpen : preferences.navigationOpen;
-  const chatArea = useRef<HTMLDivElement | null>(null);
+  const [chatArea, setChatArea] = useState<HTMLDivElement | null>(null);
+  const [chatAreaWidth, setChatAreaWidth] = useState<number | null>(null);
+  const [panelsOverlayOpen, setPanelsOverlayOpen] = useState(false);
+  useEffect(() => {
+    if (!chatArea) return;
+    const measured = chatArea.closest<HTMLElement>('[data-chat-area]') ?? chatArea;
+    setChatAreaWidth(measured.getBoundingClientRect().width);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setChatAreaWidth(entry.contentRect.width);
+    });
+    observer.observe(measured);
+    return () => observer.disconnect();
+  }, [chatArea]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [projectsError, setProjectsError] = useState<Error | null>(null);
@@ -275,17 +251,22 @@ function NativeWorkspace({ client, store }: { readonly client: NativeClient; rea
   const previousScope = useRef(scope);
   useEffect(() => {
     if (previousScope.current?.directory !== scope?.directory || previousScope.current?.projectId !== scope?.projectId) {
-      setSessionKey(null);
+      const selected = sessions.find((session) => session.sessionKey === sessionKey);
+      if (scope && selected && selected.directory !== scope.directory) setSessionKey(null);
       setOperationError(null);
+      setPanelsOverlayOpen(false);
     }
     previousScope.current = scope;
-  }, [scope]);
+  }, [scope, sessionKey, sessions]);
   const selectDirectory = (project: NativeProject, directory: string) => {
+    if (scope?.projectId === project.id && scope.directory === directory) return;
     setSessionKey(null);
     setScope({ projectId: project.id, directory });
     setOperationError(null);
   };
   const selectSession = (session: SessionSummary) => {
+    const selectedProject = projects.find((item) => [item.path, ...(item.worktreePaths ?? [])].includes(session.directory));
+    setScope(selectedProject ? { projectId: selectedProject.id, directory: session.directory } : null);
     setSessionKey(session.sessionKey);
     setMobileNavigationOpen(false);
     setOperationError(null);
@@ -309,46 +290,42 @@ function NativeWorkspace({ client, store }: { readonly client: NativeClient; rea
     } catch (cause) { setOperationError(asError(cause)); }
     finally { creatingRef.current = false; setCreating(false); }
   };
-  const visibleSessions = useMemo(() => sessions.filter((session) => session.directory === scope?.directory), [sessions, scope?.directory]);
   const project = projects.find((item) => item.id === scope?.projectId);
-  const contextTool = tools.find((item) => item.id === preferences.contextTool) ?? tools[0];
   const contextOpen = Boolean(scope && preferences.contextOpen);
   const contextExpanded = contextOpen && preferences.contextExpanded;
-  const showPanels = preferences.panelsOpen && !contextOpen;
-  const shellStyle: CSSProperties & { '--omo-navigation-width': string; '--omo-context-width': string } = {
-    '--omo-navigation-width': `${preferences.navigationWidth}px`,
-    '--omo-context-width': `${preferences.contextWidths[preferences.contextTool] * 100}%`,
-  };
+  const panelsFit = !compact && !contextOpen && chatAreaWidth !== null && chatAreaWidth >= WORK_STATUS_REQUIRED_ROW_WIDTH;
+  const showPanels = Boolean(sessionKey && (panelsFit ? preferences.panelsOpen : panelsOverlayOpen));
   const openTool = (tool: Tool) => {
     layout.update({ ...preferences, contextTool: tool, contextOpen: !contextOpen || tool !== preferences.contextTool });
     setMobileNavigationOpen(false);
   };
-  const resizeContext = (percent: number, persist: boolean) => {
-    layout.update({ ...preferences, contextWidths: {
-      ...preferences.contextWidths, [preferences.contextTool]: percent / 100,
-    } }, persist);
-  };
 
-  return <div className="omo-shell" style={shellStyle} data-testid="omo-app" data-navigation-open={navigationOpen}
+  const nativeStyle: CSSProperties & { '--oc-titlebar-left-inset'?: string } = desktop && /Mac/.test(navigator.platform)
+    ? { '--oc-titlebar-left-inset': '4.5rem' } : {};
+  return <div style={nativeStyle} data-testid="omo-app" data-navigation-open={navigationOpen}
     data-panels-open={showPanels} data-context-open={contextOpen} data-context-expanded={contextExpanded}
     data-navigation-width={preferences.navigationWidth} data-context-width={preferences.contextWidths[preferences.contextTool]}>
-    <div className="omo-titlebar-controls app-region-no-drag">
-      <Button variant="ghost" size="sm" aria-label={t('commandPalette.item.toggleSidebar')}
-        aria-expanded={navigationOpen} aria-controls="omo-navigation" data-testid="omo-navigation-toggle"
-        onClick={() => {
+    <MainLayoutView
+      titlebarControls={<TitlebarLeftControlsView isSidebarOpen={navigationOpen}
+        onToggleSidebar={() => {
           if (compact) setMobileNavigationOpen(!mobileNavigationOpen);
           else layout.update({ ...preferences, navigationOpen: !navigationOpen });
-        }}><Icon name="layout-left" className="size-4" /></Button>
-      <Button variant="ghost" size="sm" disabled={!project || !status?.available || creating} onClick={() => { void create(); }}
-        data-testid="omo-new-session" aria-label={t('sessions.sidebar.header.actions.newSession')}
-        title={t('sessions.sidebar.header.actions.newSession')}>
-        <Icon name="chat-new" className="size-4" />
-        <span className="omo-new-session-label">{t('sessions.sidebar.header.actions.newSession')}</span>
-      </Button>
-    </div>
-    <aside id="omo-navigation" className="omo-navigation" inert={!navigationOpen || undefined} aria-hidden={!navigationOpen}>
-      <div className="omo-titlebar-space app-region-drag" aria-hidden />
-      <div className="omo-navigation-content">
+        }}
+        toggleButtonProps={{ 'data-testid': 'omo-navigation-toggle', 'aria-expanded': navigationOpen, 'aria-controls': 'omo-navigation' }}
+        newSessionButtonProps={{ 'data-testid': 'omo-new-session' }}
+        onNewSession={() => { void create(); }} newSessionDisabled={!project || !status?.available || creating} />}
+      sidebar={<div id="omo-navigation" className={compact ? 'absolute inset-y-0 left-0 z-40 shadow-xl' : 'contents'}
+        hidden={compact && !navigationOpen} inert={!navigationOpen || undefined} aria-hidden={!navigationOpen}>
+        <SidebarView isOpen={compact || navigationOpen} isMobile={false} width={preferences.navigationWidth}
+          onWidthChange={(navigationWidth, persist) => layout.update({ ...preferences, navigationWidth }, persist)} topBar={<SidebarTopBar />}
+          cancelRestoresWidth resizeHandleProps={{ tabIndex: 0, 'data-testid': 'omo-navigation-resize', onKeyDown: (event) => {
+            const width = preferences.navigationWidth;
+            const next = event.key === 'Home' ? SIDEBAR_MIN_WIDTH : event.key === 'End' ? SIDEBAR_MAX_WIDTH
+              : event.key === 'ArrowLeft' ? width - 16 : event.key === 'ArrowRight' ? width + 16 : null;
+            if (next === null) return;
+            event.preventDefault();
+            layout.update({ ...preferences, navigationWidth: Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, next)) });
+          } }}>
         <ProjectSidebar projects={projects} projectId={scope?.projectId ?? null} directory={scope?.directory ?? null}
           loading={projectsLoading} error={projectsError} onSelect={selectDirectory} onRefresh={() => { void refreshProjects(); }}
           onAdd={async (input) => {
@@ -361,90 +338,60 @@ function NativeWorkspace({ client, store }: { readonly client: NativeClient; rea
             const renamed = await client.updateProject(item.id, { name });
             projectsRevision.current += 1;
             setProjects((previous) => previous.map((entry) => entry.id === item.id ? renamed : entry));
-          }} />
-        <SessionSidebar sessions={visibleSessions} store={store} sessionKey={sessionKey}
-          loading={sessionsLoading} error={sessionsError} creating={creating} canCreate={Boolean(project && status?.available)}
-          onCreate={() => { void create(); }} onSelect={selectSession} onRefresh={() => { void refreshSessions(); }} showCreate={false} />
+          }}
+          renderNavigation={(editProject) => <NativeNavigation projects={projects} projectId={scope?.projectId ?? null}
+            directory={scope?.directory ?? null} onProjectSelect={selectDirectory} sessions={sessions} store={store}
+            sessionKey={sessionKey} loading={sessionsLoading} error={sessionsError} creating={creating}
+            canCreate={Boolean(project && status?.available)} onCreate={() => { void create(); }} onSelect={selectSession}
+            onRefresh={() => { void refreshSessions(); }} showCreate={false}
+            projectActions={(item) => <DropdownMenuItem onSelect={() => editProject(item)} data-project-rename={item.id}>
+              <Icon name="edit" className="size-4" />{t('mobile.sessions.editProjectAria', { label: item.name })}
+            </DropdownMenuItem>} />} />
         <AppearanceNotice />
-      </div>
-      <NativeResizeHandle label={t('sidebar.resize.leftPanelAria')} value={preferences.navigationWidth}
-        min={SIDEBAR_MIN_WIDTH} max={SIDEBAR_MAX_WIDTH} direction={1} testId="omo-navigation-resize"
-        onResize={(width, persist) => layout.update({ ...preferences, navigationWidth: width }, persist)} />
-    </aside>
-    <div className="omo-workspace">
-      <header className="omo-toolbar app-region-drag">
-        <div className="omo-header-controls-space" aria-hidden />
-        <div className="omo-heading">
-          <strong className="omo-brand truncate typography-ui-header">OmoChamber</strong>
-          <span className="truncate typography-meta text-muted-foreground" title={scope?.directory}>
-            {project?.name ?? t('mobile.header.noProject')}
-          </span>
-        </div>
-        <Button variant="ghost" size="sm" aria-pressed={preferences.panelsOpen} aria-controls="omo-panels"
-          className="app-region-no-drag" data-testid="omo-panels-toggle" aria-label={t('header.workStatusPanel.toggleAria')}
+        </SidebarView>
+      </div>}
+      header={<HeaderView controlsWidth={!navigationOpen || compact
+        ? 'calc(var(--oc-titlebar-left-inset, 0.75rem) + var(--oc-titlebar-controls-width, 5.5rem) + 0.5rem)' : 0}
+        actions={<Button variant="ghost" size="sm" aria-pressed={showPanels} aria-controls="omo-panels"
+          data-work-status-toggle data-testid="omo-panels-toggle" aria-label={t('header.workStatusPanel.toggleAria')}
           title={t('omo.panels.title')} onClick={() => {
-            layout.update({ ...preferences, panelsOpen: contextOpen || !preferences.panelsOpen, contextOpen: false });
+            if (panelsFit) layout.update({ ...preferences, panelsOpen: !preferences.panelsOpen });
+            else setPanelsOverlayOpen(!panelsOverlayOpen);
             setMobileNavigationOpen(false);
-          }}><Icon name="list-check-2" className="size-4" /></Button>
-      </header>
-      <div className="omo-main">
-        <div className="omo-context border-b border-border px-4 py-2">
-          <p className="truncate typography-micro text-muted-foreground" title={scope?.directory}>{scope?.directory}</p>
+          }}><Icon name="list-check-2" className="size-4" /></Button>}>
+        <HeaderTitleView title={sessions.find((session) => session.sessionKey === sessionKey)?.name ?? 'OmoChamber'}
+          metadata={project?.name ?? t('mobile.header.noProject')} />
+      </HeaderView>}
+      chat={<div ref={setChatArea} className="relative flex h-full min-h-0 bg-background">
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col" data-testid="omo-chat-column"
+          inert={contextExpanded || undefined} aria-hidden={contextExpanded || undefined}>
+        <div className="shrink-0 space-y-1 px-4 py-2">
           <NativeStatusBar store={store} sessionKey={sessionKey} status={status} error={statusError} onRefresh={() => { void refreshStatus(); }} />
           {operationError && <p role="alert" className="break-words typography-meta text-[var(--status-error-text)]">{nativeErrorCopy(operationError, t)}</p>}
           {layout.error && <p role="alert" className="break-words typography-meta text-[var(--status-error-text)]">{nativeErrorCopy(layout.error, t)}</p>}
         </div>
-        <div className="omo-content">
-          <div ref={chatArea} className="omo-chat-area" data-chat-area="true">
-            <main className="omo-chat-column" inert={contextExpanded || undefined} aria-hidden={contextExpanded || undefined}>
-              <div className="omo-chat-content" data-testid="omo-chat-column">
-                <NativeChat client={client} store={store} sessionKey={sessionKey} />
-              </div>
-              <div id="omo-panels" className="omo-panels" hidden={!showPanels} inert={!showPanels || undefined}>
-                <NativePanels client={client} store={store} sessionKey={sessionKey} />
-              </div>
-            </main>
-            <aside id="omo-context-pane" className="omo-context-pane" data-testid="omo-context-pane" data-expanded={contextExpanded}
-              aria-label={t(contextTool.label)} hidden={!contextOpen} inert={!contextOpen || undefined}>
-              <NativeResizeHandle label={t('contextPanel.actions.resizePanelAria')}
-                value={preferences.contextWidths[preferences.contextTool] * 100}
-                min={20} max={80} direction={-1} testId="omo-context-resize" onResize={resizeContext}
-                distanceScale={() => {
-                  const width = chatArea.current?.clientWidth;
-                  return width ? 100 / width : 0;
-                }} />
-              <header className="omo-context-header">
-                <Icon name={contextTool.icon} className="size-4 shrink-0" />
-                <h2 className="min-w-0 flex-1 truncate typography-ui-label">{t(contextTool.label)}</h2>
-                <Button variant="ghost" size="xs" aria-pressed={contextExpanded} data-testid="omo-context-expand"
-                  aria-label={t(contextExpanded ? 'contextPanel.actions.collapsePanel' : 'contextPanel.actions.expandPanel')}
-                  title={t(contextExpanded ? 'contextPanel.actions.collapsePanel' : 'contextPanel.actions.expandPanel')}
-                  onClick={() => layout.update({ ...preferences, contextExpanded: !contextExpanded })}>
-                  <Icon name={contextExpanded ? 'fullscreen-exit' : 'fullscreen'} className="size-4" />
-                </Button>
-                <Button variant="ghost" size="xs" data-testid="omo-context-close" aria-label={t('contextPanel.actions.closePanel')}
-                  title={t('contextPanel.actions.closePanel')} onClick={() => layout.update({ ...preferences, contextOpen: false })}>
-                  <Icon name="close" className="size-4" />
-                </Button>
-              </header>
-              <div className="omo-context-content">
-                <NativeWorkbench directory={contextOpen ? scope?.directory ?? null : null}
-                  tab={preferences.contextTool} onProjectsChange={() => { void refreshProjects(); }} />
-              </div>
-            </aside>
-          </div>
-          <nav className="omo-context-rail" aria-label={t('contextRail.aria.rail')}>
-            {tools.map((item) => <Button key={item.id} variant="ghost" size="icon" aria-pressed={contextOpen && preferences.contextTool === item.id}
-              aria-controls="omo-context-pane" aria-expanded={contextOpen && preferences.contextTool === item.id}
-              aria-label={t(item.label)} title={t(item.label)} disabled={!scope}
-              className={contextOpen && preferences.contextTool === item.id ? 'bg-interactive-selection text-interactive-selection-foreground' : 'text-muted-foreground'}
-              data-testid={`omo-tab-${item.id}`} onClick={() => openTool(item.id)}>
-              <Icon name={item.icon} className="size-4" />
-            </Button>)}
-          </nav>
+        <div className="flex min-h-0 flex-1">
+          <NativeChat client={client} store={store} sessionKey={sessionKey} floatingComposer />
         </div>
-      </div>
-    </div>
+        </div>
+        <div id="omo-panels" className={!panelsFit ? 'contents' : 'flex min-h-0'}>
+          <NativeWorkStatusPanel client={client} store={store} sessionKey={sessionKey} visible={showPanels}
+            overlay={!panelsFit} onDismiss={() => setPanelsOverlayOpen(false)} />
+        </div>
+      </div>}
+      contextPanel={<NativeContextPanel directory={scope?.directory ?? null} tab={preferences.contextTool}
+        open={contextOpen} expanded={contextExpanded} widthFraction={preferences.contextWidths[preferences.contextTool]}
+        onClose={() => layout.update({ ...preferences, contextOpen: false })}
+        onExpandedChange={(contextExpanded) => layout.update({ ...preferences, contextExpanded })}
+        onWidthChange={(width) => layout.update({ ...preferences, contextWidths: {
+          ...preferences.contextWidths, [preferences.contextTool]: Math.min(0.8, Math.max(0.2, width)),
+        } })}
+        onProjectsChange={() => { void refreshProjects(); }} />}
+      contextRail={<ContextPanelRailView ariaLabel={t('contextRail.aria.rail')} items={tools}
+        renderItem={(tool) => <ContextPanelRailItemView key={tool.id} icon={<Icon name={tool.icon} className="size-4" />}
+          isActive={contextOpen && preferences.contextTool === tool.id} label={t(tool.label)} description={t(tool.label)}
+          onSelect={() => openTool(tool.id)} buttonProps={{ disabled: !scope, 'data-testid': `omo-tab-${tool.id}` }} />} />}
+    />
     <NativeDialogs store={store} sessionKey={sessionKey} />
   </div>;
 }

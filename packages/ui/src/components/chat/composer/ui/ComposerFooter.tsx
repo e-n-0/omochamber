@@ -12,6 +12,7 @@
  */
 
 import React from 'react';
+import { ChatComposerFooterView } from '../../presentation/ChatComposerView';
 
 import { SessionGoalButton, SessionGoalObjectiveCounter } from '@/components/chat/SessionGoalButton';
 import { ComposerDictation } from '@/components/dictation/ComposerDictation';
@@ -132,18 +133,7 @@ export function ComposerFooter(props: ComposerFooterProps) {
     } = props;
 
     return (
-        <div
-            className={cn(
-                'bg-transparent flex-shrink-0',
-                footerPaddingClass,
-                isMobile ? 'flex items-center gap-x-1.5' : cn('flex items-center justify-between', footerGapClass)
-            )}
-            style={{
-                borderBottomLeftRadius: chatInputRadius,
-                borderBottomRightRadius: chatInputRadius,
-            }}
-            data-chat-input-footer="true"
-        >
+        <ChatComposerFooterView isMobile={isMobile} radius={chatInputRadius} paddingClass={footerPaddingClass} gapClass={footerGapClass}>
             {isMobile ? (
                 <>
                     <div className="flex w-full items-center justify-between gap-x-1.5">
@@ -310,6 +300,6 @@ export function ComposerFooter(props: ComposerFooterProps) {
                     </div>
                 </>
             )}
-        </div>
+        </ChatComposerFooterView>
     );
 }

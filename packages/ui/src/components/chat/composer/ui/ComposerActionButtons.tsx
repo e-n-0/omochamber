@@ -28,6 +28,12 @@ type ComposerActionButtonsProps = {
     onAbort: () => void;
     /** Replaces "Send message" as the accessible name and tooltip (parallel mode says how many runs start). */
     sendLabel?: string;
+    sendTestId?: string;
+    queueTestId?: string;
+    stopTestId?: string;
+    queueDisabled?: boolean;
+    stopDisabled?: boolean;
+    queueLabel?: string;
 };
 
 export const ComposerActionButtons = React.memo(function ComposerActionButtons(props: ComposerActionButtonsProps) {
@@ -45,12 +51,14 @@ export const ComposerActionButtons = React.memo(function ComposerActionButtons(p
         onQueueMessage,
         onAbort,
         sendLabel,
+        sendTestId, queueTestId, stopTestId, queueDisabled = false, stopDisabled = false, queueLabel,
     } = props;
     const { t } = useI18n();
 
     const sendButton = (
         <button
             type={isMobile ? 'button' : 'submit'}
+            data-testid={sendTestId}
             disabled={!canSend || (!currentSessionId && !newSessionDraftOpen)}
             onClick={(event) => {
                 if (!isMobile) {
@@ -82,7 +90,8 @@ export const ComposerActionButtons = React.memo(function ComposerActionButtons(p
             {hasContent ? (
                 <button
                     type="button"
-                    disabled={!currentSessionId}
+                    disabled={!currentSessionId || queueDisabled}
+                    data-testid={queueTestId}
                     onClick={(event) => {
                         if (isMobile) {
                             event.preventDefault();
@@ -94,7 +103,7 @@ export const ComposerActionButtons = React.memo(function ComposerActionButtons(p
                         'absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-1',
                         currentSessionId ? 'text-primary hover:text-primary' : 'opacity-30'
                     )}
-                    aria-label={t('chat.chatInput.actions.queueMessageAria')}
+                    aria-label={queueLabel ?? t('chat.chatInput.actions.queueMessageAria')}
                 >
                     <Icon name="send-plane-2" className={cn(sendIconSizeClass, '-rotate-90')} />
                 </button>
@@ -102,6 +111,8 @@ export const ComposerActionButtons = React.memo(function ComposerActionButtons(p
             <button
                 type="button"
                 onClick={onAbort}
+                disabled={stopDisabled}
+                data-testid={stopTestId}
                 className={cn(
                     footerIconButtonClass,
                     'text-[var(--status-error)] hover:text-[var(--status-error)]'
@@ -126,4 +137,6 @@ export const ComposerActionButtons = React.memo(function ComposerActionButtons(p
     && prev.onQueueMessage === next.onQueueMessage
     && prev.onAbort === next.onAbort
     && prev.sendLabel === next.sendLabel
+    && prev.sendTestId === next.sendTestId && prev.queueTestId === next.queueTestId && prev.stopTestId === next.stopTestId
+    && prev.queueDisabled === next.queueDisabled && prev.stopDisabled === next.stopDisabled && prev.queueLabel === next.queueLabel
 ));

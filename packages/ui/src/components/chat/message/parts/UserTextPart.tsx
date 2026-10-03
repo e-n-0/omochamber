@@ -1,4 +1,5 @@
 import React from 'react';
+import { ChatUserTextView } from '../../presentation/ChatTranscriptView';
 import { cn } from '@/lib/utils';
 import type { Part } from '@/lib/opencode/model';
 import type { AgentMentionInfo } from '../types';
@@ -290,9 +291,8 @@ const UserTextPart: React.FC<UserTextPartProps> = ({ part, messageId, agentMenti
                     <Icon name="arrow-down-s" className="h-3.5 w-3.5" />
                 </button>
             )}
-            <div
+            <ChatUserTextView
                 className={cn(
-                    "break-words font-sans typography-markdown-body",
                     !isControlled && isExpanded && "pb-3",
                     normalizedRenderingMode === 'plain' && 'whitespace-pre-wrap [unicode-bidi:plaintext] text-start',
                     isCollapsed && "line-clamp-2",
@@ -328,7 +328,7 @@ const UserTextPart: React.FC<UserTextPartProps> = ({ part, messageId, agentMenti
                 ) : (
                     plainTextContent
                 )}
-            </div>
+            </ChatUserTextView>
             {terminalContextState.contexts.length > 0 ? (
                 <div className="mt-2 space-y-1.5">
                     {terminalContextState.contexts.map((context, index) => (

@@ -1,4 +1,5 @@
 import React from 'react';
+import { ChatMessageView } from './presentation/ChatTranscriptView';
 import { findCatalogModel, type Message, type Part } from '@/lib/opencode/model';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -30,7 +31,7 @@ import { getProviderModelDisplayName } from '@/lib/modelDisplay';
 import { lazyWithChunkRecovery } from '@/lib/chunkLoadRecovery';
 import type { TurnGroupingContext } from './lib/turns/types';
 import { copyMarkdownToClipboard, copyTextToClipboard } from '@/lib/clipboard';
-import { FadeInOnReveal } from './message/FadeInOnReveal';
+
 import { streamPerfCount } from '@/stores/utils/streamDebug';
 import { areOptionalRenderRelevantMessagesEqual, areRenderRelevantMessagesEqual, areRelevantTurnGroupingContextsEqual } from './message/renderCompare';
 import type { ReviewTransferDirection } from '@/lib/reviewFlow';
@@ -743,78 +744,17 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     const assistantTopPaddingClass = !isUser && shouldShowHeader && !previousIsHiddenUserMessage
         ? (stickyUserHeader ? (isMobile ? 'pt-4' : 'pt-6') : 'pt-0')
         : 'pt-0';
-    const userMessageRadius = 'var(--radius-xl)';
+
 
     return (
         <>
-            <div
-                className={cn(
-                    'group w-full',
-                    isUser ? (isMobile ? 'pt-2' : 'pt-4') : assistantTopPaddingClass,
-                    isUser ? 'pb-0' : (isFollowedByAssistant || nextIsHiddenUserMessage) ? 'pb-0' : 'pb-2'
-                )}
-                id={`message-${message.info.id}`}
-                data-message-id={message.info.id}
-                ref={messageContainerRef}
-            >
-                <div className="chat-message-column relative">
-                    {isUser ? (
-                        displayParts.length === 0 ? null : (
-                            <FadeInOnReveal
-                                forceAnimation
-                                skipAnimation={!animateUserOnMount}
-                                ignoreContextDisabled
-                                respectReducedMotion
-                            >
-                                <div className={cn('relative flex justify-end', !isMobile ? 'group/user-shell' : undefined)}>
-                                    {/* peek: the action row under the bubble is suppressed, so
-                                        reserve its gap to the next message here, OUTSIDE the
-                                        bubble background. */}
-                                    <div className={cn('max-w-[85%]', showStickyInlineHoverRow ? 'pb-5' : undefined, chatSurfaceMode === 'peek' ? 'pb-3' : undefined)}>
-                                        <div
-                                            style={{
-                                                backgroundColor: 'var(--chat-user-message-bg)',
-                                                borderRadius: userMessageRadius,
-                                                borderBottomRightRadius: 'var(--radius-sm)',
-                                            }}
-                                            className="px-5 py-3 shadow-none border border-primary/5"
-                                        >
-                                            <MessageBody
-                                                messageId={message.info.id}
-                                                parts={displayParts}
-                                                isUser={isUser}
-                                                isMessageCompleted={isMessageCompleted}
-                                                messageFinish={messageFinish}
-                                                messageCreatedAt={messageCreatedAt ?? undefined}
-                                                 isMobile={isMobile}
-                                                 alwaysShowActions={alwaysShowMessageActions}
-                                                 hasTouchInput={hasTouchInput}
-                                                copiedCode={copiedCode}
-                                                onCopyCode={handleCopyCode}
-                                                expandedTools={expandedTools}
-                                                onToggleTool={handleToggleTool}
-                                                onShowPopup={handleShowPopup}
-                                                streamPhase={streamPhase}
-                                                allowAnimation={allowAnimation}
-                                                shouldShowHeader={false}
-                                                hasTextContent={hasTextContent}
-                                                onCopyMessage={handleCopyMessage}
-                                                copiedMessage={copiedMessage}
-                                                showReasoningTraces={showReasoningTraces}
-                                                agentMention={agentMention}
-                                                onRevert={handleRevert}
-                                                onFork={isUser ? handleFork : undefined}
-                                                contextPinned={isPinnedIntoContext}
-                                                contextPinPending={pinPending}
-                                                onToggleContextPin={canPinIntoContext && messageCreatedAt ? handleToggleContextPin : undefined}
-                                                errorMessage={assistantErrorText}
-                                                userActionsMode={useExternalUserActionsRow ? 'external-content' : 'inline'}
-                                                stickyUserHeaderEnabled={stickyUserHeader}
-                                                extraActions={guestMessageActions}
-                                            />
-                                        </div>
-                                        {useExternalUserActionsRow ? (
-                                            <MessageBody
+            {(isUser && displayParts.length === 0) ? null : <ChatMessageView
+                messageId={message.info.id} isUser={isUser} isMobile={isMobile}
+                topPaddingClass={assistantTopPaddingClass}
+                bottomPaddingClass={(isFollowedByAssistant || nextIsHiddenUserMessage) ? 'pb-0' : 'pb-2'}
+                userGapClassName={cn(showStickyInlineHoverRow ? 'pb-5' : undefined, chatSurfaceMode === 'peek' ? 'pb-3' : undefined)}
+                animateUserOnMount={animateUserOnMount} containerRef={messageContainerRef}
+                userActions={useExternalUserActionsRow ? (<MessageBody
                                                 messageId={message.info.id}
                                                 parts={displayParts}
                                                 isUser={isUser}
@@ -846,15 +786,40 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                                 userActionsMode="external-actions"
                                                 stickyUserHeaderEnabled={stickyUserHeader}
                                                 extraActions={guestMessageActions}
-                                            />
-                                        ) : null}
-                                    </div>
-                                 </div>
-                            </FadeInOnReveal>
-                        )
-                    ) : (
-                        <div className="relative">
-                            <MessageBody
+                                            />) : null}>
+                {isUser ? (<MessageBody
+                                                messageId={message.info.id}
+                                                parts={displayParts}
+                                                isUser={isUser}
+                                                isMessageCompleted={isMessageCompleted}
+                                                messageFinish={messageFinish}
+                                                messageCreatedAt={messageCreatedAt ?? undefined}
+                                                 isMobile={isMobile}
+                                                 alwaysShowActions={alwaysShowMessageActions}
+                                                 hasTouchInput={hasTouchInput}
+                                                copiedCode={copiedCode}
+                                                onCopyCode={handleCopyCode}
+                                                expandedTools={expandedTools}
+                                                onToggleTool={handleToggleTool}
+                                                onShowPopup={handleShowPopup}
+                                                streamPhase={streamPhase}
+                                                allowAnimation={allowAnimation}
+                                                shouldShowHeader={false}
+                                                hasTextContent={hasTextContent}
+                                                onCopyMessage={handleCopyMessage}
+                                                copiedMessage={copiedMessage}
+                                                showReasoningTraces={showReasoningTraces}
+                                                agentMention={agentMention}
+                                                onRevert={handleRevert}
+                                                onFork={isUser ? handleFork : undefined}
+                                                contextPinned={isPinnedIntoContext}
+                                                contextPinPending={pinPending}
+                                                onToggleContextPin={canPinIntoContext && messageCreatedAt ? handleToggleContextPin : undefined}
+                                                errorMessage={assistantErrorText}
+                                                userActionsMode={useExternalUserActionsRow ? 'external-content' : 'inline'}
+                                                stickyUserHeaderEnabled={stickyUserHeader}
+                                                extraActions={guestMessageActions}
+                                            />) : (<MessageBody
                                 sessionId={message.info.sessionID}
                                 messageId={message.info.id}
                                 parts={visibleParts}
@@ -891,12 +856,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                 footerVariant={headerVariant}
                                 isDarkTheme={isDarkTheme}
                                 extraActions={guestMessageActions}
-                            />
-
-                        </div>
-                    )}
-                </div>
-            </div>
+                            />)}
+            </ChatMessageView>}
             <React.Suspense fallback={null}>
                 <ToolOutputDialog
                     popup={popupContent}

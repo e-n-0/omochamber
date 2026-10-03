@@ -33,7 +33,6 @@ import {
   getEffectiveShortcutPrefix,
   isShortcutPrefixHeld,
 } from '@/lib/shortcuts';
-import { cn } from '@/lib/utils';
 import { useFeatureFlagsStore } from '@/stores/useFeatureFlagsStore';
 import { useGitStatus } from '@/stores/useGitStore';
 import { useGitHubAuthStore } from '@/stores/useGitHubAuthStore';
@@ -43,6 +42,7 @@ import { useGuestSurfaces } from '@/hooks/useGuestSurfaces';
 import { useGuestBadgeStore } from '@/lib/guests/badge-store';
 import { isPluginContextPanelMode, pluginIdFromMode } from '@/lib/surfaces/modes';
 import { ContextRailSurfacesDialog } from './ContextRailSurfacesDialog';
+import { ContextPanelRailItemView, ContextPanelRailView } from './ContextPanelRailView';
 
 const RAIL_TOOLTIP_DELAY_MS = 150;
 // Hold the surface-switch modifier for this long before revealing the order
@@ -67,100 +67,18 @@ type RailItemProps = {
   onSelect: (surface: ContextSurfaceDescriptor) => void;
 };
 
-// The badge corner is 16px tall; cap large counts so the pill stays compact
-// on the 36px rail button (matching the order-number badge's footprint).
-const formatRailBadgeCount = (count: number): string => (count > 99 ? '99+' : String(count));
-
-const ContextPanelRailItem: React.FC<RailItemProps> = ({
-  surface,
-  isActive,
-  showActivityDot,
-  label,
-  description,
-  badgeCount,
-  badgeAriaLabel,
-  badgeDescription,
-  orderNumber,
-  showOrderNumber,
-  onSelect,
-}) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: surface.id,
-  });
-
-  const displayBadgeCount = badgeCount != null && badgeCount > 0 ? formatRailBadgeCount(badgeCount) : null;
-
+const ContextPanelRailItem: React.FC<RailItemProps> = ({ surface, onSelect, ...presentation }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: surface.id });
   return (
-    <div
-      ref={setNodeRef}
+    <ContextPanelRailItemView
+      {...presentation}
+      itemRef={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={cn('relative', isDragging && 'z-10 opacity-70')}
-    >
-      <Tooltip delayDuration={RAIL_TOOLTIP_DELAY_MS}>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            {...attributes}
-            {...listeners}
-            onClick={() => onSelect(surface)}
-            aria-label={badgeAriaLabel ?? label}
-            aria-pressed={isActive}
-            className={cn(
-              'flex h-9 w-9 touch-none select-none items-center justify-center rounded-md transition-colors',
-              isActive
-                ? 'text-primary'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {surface.id === 'diff' ? (
-              <DiffViewIcon className="h-[18px] w-[18px]" />
-            ) : (
-              <GuestIcon
-                icon={surface.icon}
-                iconSrc={surface.iconSrc}
-                className="h-[18px] w-[18px]"
-              />
-            )}
-            {showOrderNumber && orderNumber != null ? (
-              <span
-                aria-hidden="true"
-                className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-surface-muted px-1 text-[0.625rem] font-medium leading-none text-muted-foreground"
-              >
-                {orderNumber === 10 ? '0' : orderNumber}
-              </span>
-            ) : displayBadgeCount ? (
-              <span
-                aria-hidden="true"
-                // Muted digits on the muted surface sat at almost the same
-                // luminance as the glyph they overlap. The count is a live
-                // signal, so it takes the info tone on its own opaque chip.
-                className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[0.625rem] font-semibold leading-none"
-                style={{
-                  backgroundColor: 'var(--status-info-background)',
-                  color: 'var(--status-info)',
-                }}
-              >
-                {displayBadgeCount}
-              </span>
-            ) : showActivityDot ? (
-              <span
-                aria-hidden="true"
-                className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[var(--status-info)]"
-              />
-            ) : null}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="left" sideOffset={8}>
-          <div className="flex flex-col gap-0.5">
-            <span>{label}</span>
-            <span className="typography-micro text-muted-foreground">{description}</span>
-            {badgeDescription ? (
-              <span className="typography-micro text-muted-foreground">{badgeDescription}</span>
-            ) : null}
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </div>
+      isDragging={isDragging}
+      buttonProps={{ ...attributes, ...listeners }}
+      onSelect={() => onSelect(surface)}
+      icon={surface.id === 'diff' ? <DiffViewIcon className="h-[18px] w-[18px]" /> : <GuestIcon icon={surface.icon} iconSrc={surface.iconSrc} className="h-[18px] w-[18px]" />}
+    />
   );
 };
 
@@ -326,13 +244,10 @@ export const ContextPanelRail: React.FC = () => {
   }
 
   return (
-    <nav
-      aria-label={t('contextRail.aria.rail')}
-      className="flex h-full w-11 flex-shrink-0 flex-col items-center gap-1 bg-background py-2"
-    >
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={surfaces.map((surface) => surface.id)} strategy={verticalListSortingStrategy}>
-          {surfaces.map((surface, index) => {
+    <ContextPanelRailView
+      ariaLabel={t('contextRail.aria.rail')}
+      items={surfaces}
+      renderItem={(surface, index) => {
             const label = surface.label ?? t(surface.labelKey);
             // Git shows a numeric badge instead of the old activity dot.
             // Other surfaces never inherit git's changed-files signal.
@@ -379,9 +294,15 @@ export const ContextPanelRail: React.FC = () => {
                 }}
               />
             );
-          })}
-        </SortableContext>
-      </DndContext>
+          }}
+      wrapItems={(children) => (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={surfaces.map((surface) => surface.id)} strategy={verticalListSortingStrategy}>
+            {children}
+          </SortableContext>
+        </DndContext>
+      )}
+      footer={<>
       {/* Outside the sortable list on purpose: this button takes no digit,
           cannot be dragged, and configures the rail rather than living on it. */}
       <Tooltip delayDuration={RAIL_TOOLTIP_DELAY_MS}>
@@ -400,6 +321,7 @@ export const ContextPanelRail: React.FC = () => {
         </TooltipContent>
       </Tooltip>
       <ContextRailSurfacesDialog open={isSurfacesDialogOpen} onOpenChange={setIsSurfacesDialogOpen} />
-    </nav>
+      </>}
+    />
   );
 };

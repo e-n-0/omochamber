@@ -1,4 +1,5 @@
 import React from 'react';
+import { MainLayoutView } from './MainLayoutView';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { SidebarTopBar } from './SidebarTopBar';
@@ -33,7 +34,6 @@ import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useUpdatePolling } from '@/hooks/useUpdatePolling';
 import { useTerminalSessionKeepalive } from '@/hooks/useTerminalSessionKeepalive';
 import { useDeviceInfo } from '@/lib/device';
-import { cn } from '@/lib/utils';
 import { useOnDemandComponent } from '@/hooks/useOnDemandComponent';
 import { useSessionListSync } from '@/components/session/sidebar/list/useSessionListSync';
 
@@ -107,79 +107,53 @@ export const MainLayout: React.FC = () => {
 
     return (
         <DiffWorkerProvider>
-            <div
-                data-page-scroll-lock="true"
-                className="main-content-safe-area relative flex h-[100dvh] bg-background"
-            >
-                <CommandPalette />
-                <HelpDialog />
-                <OpenCodeStatusDialog />
-                <RunAutoFusion />
-                <SessionDialogs />
-                {isolatedSpacesEnabled ? <><SpaceAccessDialog /><SpaceActionsSheet /><SpaceApplyDialog /><SpaceDeleteDialog /><SpaceSetupOutputDialog /></> : null}
-
-                {/* Persistent top-left controls (toggle + project actions) that
-                    stay put while the sidebar/header animate beneath them. */}
-                <TitlebarLeftControls />
-                {/* Full-height Sidebar beside [Header above (chat | RightSidebar)] */}
-                <div className="flex flex-1 overflow-hidden" data-page-scroll-lock="true">
-                    <Sidebar
+            <MainLayoutView
+                overlays={<>
+                    <CommandPalette />
+                    <HelpDialog />
+                    <OpenCodeStatusDialog />
+                    <RunAutoFusion />
+                    <SessionDialogs />
+                    {isolatedSpacesEnabled ? <><SpaceAccessDialog /><SpaceActionsSheet /><SpaceApplyDialog /><SpaceDeleteDialog /><SpaceSetupOutputDialog /></> : null}
+                </>}
+                titlebarControls={<TitlebarLeftControls />}
+                sidebar={<Sidebar
                         isOpen={isSidebarOpen}
                         isMobile={isMobile}
                         className="border-border"
                         topBar={<SidebarTopBar />}
                     >
                         <SessionSidebar isVisible={isSidebarOpen} />
-                    </Sidebar>
-                    <div className="relative flex flex-1 min-w-0 flex-col overflow-hidden bg-background" data-page-scroll-lock="true">
-                        <Header />
-                        <div className="relative flex flex-1 min-h-0 overflow-hidden bg-background" data-page-scroll-lock="true">
-                            <div className="relative flex flex-1 min-w-0 flex-col overflow-hidden border-t border-border bg-background" data-page-scroll-lock="true">
-                                <div className="flex flex-1 min-h-0 overflow-hidden" data-page-scroll-lock="true">
-                                    {/* Holds the chat and the context panel together, so its
-                                        width does not move when the context panel opens. The
-                                        work-status panel measures this rather than the chat,
-                                        which the context panel animates. */}
-                                    <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden" data-page-scroll-lock="true" data-chat-area="true">
-                                        <main className="flex-1 overflow-hidden bg-background relative" data-page-scroll-lock="true">
-                                            <div className={cn('absolute inset-0', isSurfacePageOpen && 'invisible')}>
-                                                <ErrorBoundary><ChatView active={!isSettingsDialogOpen && !isSurfacePageOpen} /></ErrorBoundary>
-                                            </div>
-                                            <ErrorBoundary><RunOverview /></ErrorBoundary>
-                                            <ErrorBoundary><ScheduledTasksDialog /></ErrorBoundary>
-                                            <ErrorBoundary><ArchiveView /></ErrorBoundary>
-                                            {isUsageStatsPageOpen && (
-                                                <div className="absolute inset-0 z-10 bg-background">
-                                                    <ErrorBoundary><UsageStatsView /></ErrorBoundary>
-                                                </div>
-                                            )}
-                                            <ErrorBoundary><WorktreesView /></ErrorBoundary>
-                                            {isSpacesPageOpen ? <ErrorBoundary><SpacesView /></ErrorBoundary> : null}
-                                            {guestPage && <div className="absolute inset-0 z-10 bg-background">
-                                                <ErrorBoundary><PluginPane mode={`plugin:${guestPage.id}`} surface="page" item={null}
-                                                    onDismiss={() => useUIStore.getState().setOpenGuestPage(null)} /></ErrorBoundary>
-                                            </div>}
-                                        </main>
-                                        <ContextPanel />
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="border-t border-border" data-page-scroll-lock="true">
-                                <ErrorBoundary><ContextPanelRail /></ErrorBoundary>
-                            </div>
-                            <ErrorBoundary><GuestHosts /></ErrorBoundary>
+                    </Sidebar>}
+                header={<Header />}
+                chat={<ErrorBoundary><ChatView active={!isSettingsDialogOpen && !isSurfacePageOpen} /></ErrorBoundary>}
+                chatHidden={isSurfacePageOpen}
+                surfaces={<>
+                    <ErrorBoundary><RunOverview /></ErrorBoundary>
+                    <ErrorBoundary><ScheduledTasksDialog /></ErrorBoundary>
+                    <ErrorBoundary><ArchiveView /></ErrorBoundary>
+                    {isUsageStatsPageOpen && (
+                        <div className="absolute inset-0 z-10 bg-background">
+                            <ErrorBoundary><UsageStatsView /></ErrorBoundary>
                         </div>
-                    </div>
-                </div>
-
-                {/* Settings: windowed dialog with blur */}
-                {SettingsWindow ? (
+                    )}
+                    <ErrorBoundary><WorktreesView /></ErrorBoundary>
+                    {isSpacesPageOpen ? <ErrorBoundary><SpacesView /></ErrorBoundary> : null}
+                    {guestPage && <div className="absolute inset-0 z-10 bg-background">
+                        <ErrorBoundary><PluginPane mode={`plugin:${guestPage.id}`} surface="page" item={null}
+                            onDismiss={() => useUIStore.getState().setOpenGuestPage(null)} /></ErrorBoundary>
+                    </div>}
+                </>}
+                contextPanel={<ContextPanel />}
+                contextRail={<ErrorBoundary><ContextPanelRail /></ErrorBoundary>}
+                guestHosts={<ErrorBoundary><GuestHosts /></ErrorBoundary>}
+                settings={SettingsWindow ? (
                     <SettingsWindow
                         open={isSettingsDialogOpen}
                         onOpenChange={setSettingsDialogOpen}
                     />
                 ) : null}
-            </div>
+            />
         </DiffWorkerProvider>
     );
 };

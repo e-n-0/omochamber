@@ -1,3 +1,5 @@
+import { DirectoryNewSessionView, SessionGroupView } from './DirectoryHeaderView';
+import { DirectoryLabelView } from './DirectoryLabelView';
 import { DirectoryActionIndicator } from '../sessions/DirectoryActionIndicator';
 import React from 'react';
 import { useShallow } from 'zustand/react/shallow';
@@ -1022,39 +1024,8 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
   }
 
   return (
-    <><div className="oc-group">
-      <div className={cn('group/gh relative flex items-start justify-between gap-1 py-1 min-w-0 rounded-md', 'cursor-pointer')}>
-      <Tooltip disabled={!groupPrSummary || !groupPrStatusLabel}>
-      <TooltipTrigger asChild>
-      <div
-        className="min-w-0 flex-1"
-        onClick={() => onToggleCollapsedGroup(groupKey)}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            onToggleCollapsedGroup(groupKey);
-          }
-        }}
-        aria-label={isCollapsed
-          ? t('sessions.sidebar.group.expandAria', { label: group.label })
-          : t('sessions.sidebar.group.collapseAria', { label: group.label })}
-        aria-expanded={!isCollapsed}
-      >
-        <div
-          ref={dragHandleProps?.setActivatorNodeRef}
-          className={cn(
-            // pl-1.5 lines the branch icon up with the project-zone header
-            // icon (container pl-2.5 + 6px = band pl-4 past its -ml-2.5).
-            'min-w-0 flex flex-1 items-start gap-1 overflow-hidden pl-1.5 transition-[padding]',
-            groupHeaderRightPadding,
-          )}
-          {...(dragHandleProps?.listeners ?? {})}
-        >
-          <div className="min-w-0 flex flex-1 flex-col justify-center gap-0.5 overflow-hidden">
-            <p className="typography-ui-label font-normal truncate text-foreground/92">
-              {group.isArchivedBucket ? (
+    <SessionGroupView name={group.label} collapsed={isCollapsed} onToggle={() => onToggleCollapsedGroup(groupKey)}
+      label={group.isArchivedBucket ? (
                 <span className="inline-flex min-w-0 max-w-full items-center gap-1">
                   <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center">
                     <Icon name="archive" className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground', alwaysShowActions ? 'hidden' : 'group-hover/gh:hidden')} />
@@ -1102,13 +1073,9 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
                   ) : null}
                 </span>
               ) : (
-                <span className="inline-flex min-w-0 max-w-full items-center gap-1">
-                  <span className="min-w-0 truncate">{renderHighlightedText(group.label, normalizedSessionSearchQuery)}</span>
-                  {groupActivityIndicator}
-                </span>
+                <DirectoryLabelView label={renderHighlightedText(group.label, normalizedSessionSearchQuery)} activity={groupActivityIndicator} />
               )}
-            </p>
-            {showBranchSubtitle && statusLine ? (
+      subtitle={showBranchSubtitle && statusLine ? (
               <span className="inline-flex min-w-0 items-center gap-1.5 leading-tight">
                 {group.isArchivedBucket ? (
                   <Icon name="archive" className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
@@ -1120,18 +1087,10 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
                 </span>
               </span>
             ) : null}
-          </div>
-          {!group.isArchivedBucket && group.directory ? <DirectoryActionIndicator directory={group.directory} className="self-center" /> : null}
-        </div>
-      </div>
-      </TooltipTrigger>
-      {groupPrSummary && groupPrStatusLabel ? (
-        <TooltipContent side="right" sideOffset={8} className="max-w-xs">
-          <p>#{groupPrSummary.number} · {groupPrStatusLabel}</p>
-        </TooltipContent>
-      ) : null}
-      </Tooltip>
-        {group.isArchivedBucket && allGroupSessions.length > 0 ? (
+      indicator={!group.isArchivedBucket && group.directory ? <DirectoryActionIndicator directory={group.directory} className="self-center" /> : null}
+      rightPadding={groupHeaderRightPadding} dragHandleRef={dragHandleProps?.setActivatorNodeRef} dragListeners={dragHandleProps?.listeners}
+      tooltip={groupPrSummary && groupPrStatusLabel ? <p>#{groupPrSummary.number} · {groupPrStatusLabel}</p> : null}
+      actions={<>        {group.isArchivedBucket && allGroupSessions.length > 0 ? (
           <div className={cn('absolute right-0.5 top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-focus-within/gh:opacity-100')}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1185,34 +1144,18 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
           </div>
         ) : null}
         {group.directory ? (
-          <div className={cn('absolute right-0.5 top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-focus-within/gh:opacity-100')}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (projectId && projectId !== activeProjectId) setActiveProjectIdOnly(projectId);
-                    if (mobileVariant) setSessionSwitcherOpen(false);
-                    // A space's directory exists inside the space only; the host's directory
-                    // probe would call it missing and move the draft to the project.
-                    openNewSessionDraft({ selectedProjectId: projectId, directoryOverride: group.directory, preserveDirectoryOverride: Boolean(group.space) });
-                  }}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-interactive-hover/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  aria-label={t('sessions.sidebar.group.actions.newDraftInGroupAria', { label: group.label })}
-                 >
-                   <Icon name="add" className="h-4 w-4" />
-                 </button>
-               </TooltipTrigger>
-               <TooltipContent side="bottom" sideOffset={4}><p>{t('sessions.sidebar.project.actions.newDraftSession')}</p></TooltipContent>
-             </Tooltip>
-           </div>
-         ) : null}
-      </div>
-      {/* Outside the header, which is a button of its own: the status line can hold one. */}
-      {group.space ? <SpaceGroupStatus spaceId={group.space.id} className="pb-1 pl-5" /> : null}
-      {!isCollapsed && renderBody ? <div className={cn('oc-group-body', groupBodyPaddingClass)}>{body}</div> : null}
-    </div>{folderDeleteDialog}</>
+          <DirectoryNewSessionView label={group.label} alwaysShowActions={alwaysShowActions}
+            onNewSession={() => {
+              if (projectId && projectId !== activeProjectId) setActiveProjectIdOnly(projectId);
+              if (mobileVariant) setSessionSwitcherOpen(false);
+              // A space's directory exists inside the space only; the host's directory
+              // probe would call it missing and move the draft to the project.
+              openNewSessionDraft({ selectedProjectId: projectId, directoryOverride: group.directory, preserveDirectoryOverride: Boolean(group.space) });
+            }} />
+         ) : null}</>}
+      footer={group.space ? <SpaceGroupStatus spaceId={group.space.id} className="pb-1 pl-5" /> : null}
+      dialog={folderDeleteDialog}
+    >{!isCollapsed && renderBody ? body : null}</SessionGroupView>
   );
 }
 

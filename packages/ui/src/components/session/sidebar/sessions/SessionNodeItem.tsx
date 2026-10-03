@@ -1,3 +1,4 @@
+import { SessionRowView, SessionRowButtonView, SessionRowTitleView, SessionRowActionsView, ROW_GUTTER_LEFT_PX, ROW_DEPTH_STEP_PX, ROW_TEXT_LEFT_PX } from './SessionRowView';
 import { DirectoryActionIndicator } from './DirectoryActionIndicator';
 import { useSessionTurnActive } from '@/sync/global-session-status';
 import React from 'react';
@@ -171,9 +172,7 @@ const areNodeWorktreeRenderSemanticsEqual = (prev: SessionNode, next: SessionNod
 // (px-1.5 = 6px), the marker slot is icon-wide (14px) with a 6px gap, so row
 // text starts exactly where the zone-header label starts. Nested children
 // shift by one gutter step per depth level.
-const ROW_GUTTER_LEFT_PX = 6;
-const ROW_DEPTH_STEP_PX = 14;
-const ROW_TEXT_LEFT_PX = ROW_GUTTER_LEFT_PX + 14 + 6;
+
 
 const cancelScrollAnchorByContainer = new WeakMap<HTMLElement, () => void>();
 
@@ -1562,27 +1561,9 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
         <ContextMenu.Root open={isContextMenuOpen} onOpenChange={handleContextMenuOpenChange} onOpenChangeComplete={handleMenuOpenChangeComplete}>
           <ContextMenu.Trigger
             render={
-              <div
-                data-session-row={session.id}
-                data-session-scope={selectionScopeKey ?? ''}
-                data-session-archived={archivedBucket ? '1' : '0'}
-                aria-current={isActive ? 'page' : undefined}
+              <SessionRowView sessionId={session.id} scopeKey={selectionScopeKey ?? ''} archived={archivedBucket}
+                active={isActive} selected={isRowSelected} timeline={isTimelineRow} timelineChat={isTimelineChatRow} depth={depth}
                 onClick={handleRowBackgroundClick}
-                // Row geometry mirrors the zone-header band: full container
-                // width, px-1.5 inner edge, a 14px icon-wide gutter (status
-                // marker / chevron) plus a 6px gap, so the title starts at the
-                // same x as the header text. Children indent one gutter step.
-                // Content sits 4px further from the row's inner edges than the
-                // gutter itself: timeline rows on both sides, project rows only
-                // on the right (their left edge is the status/chevron gutter).
-                style={{ paddingLeft: isTimelineRow ? ROW_GUTTER_LEFT_PX + 4 : ROW_TEXT_LEFT_PX + depth * ROW_DEPTH_STEP_PX }}
-                className={cn(
-                  'group relative my-0.5 flex cursor-pointer items-center rounded-md pr-2.5',
-                  isTimelineRow && !isTimelineChatRow ? 'py-1.5' : 'py-1',
-                  isTimelineRow && !(isActive || isRowSelected) && 'hover:bg-interactive-hover/60',
-                  (isActive || isRowSelected) && 'bg-interactive-selection/70 text-interactive-selection-foreground',
-                  isRowSelected && 'ring-1 ring-inset ring-border',
-                )}
               />
             }
           >
@@ -1592,37 +1573,15 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
             {(
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button
-                    type="button"
-	                    aria-pressed={selectionModeEnabled ? isRowSelected : undefined}
-	                    onPointerDown={handleRowPointerDown}
- 	                    onPointerUp={handleRowPointerEnd}
- 	                    onPointerCancel={handleRowPointerEnd}
- 	                    onMouseDown={handleRowMouseDown}
- 	                    onClick={(event) => handleRowSelect(event)}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      handleSessionDoubleClick(session.id, sessionTitle);
-                    }}
-                    className={cn(
-                      'flex min-w-0 flex-1 cursor-pointer flex-col gap-0 overflow-hidden text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground select-none transition-[padding]',
-	                      isTouchPressed && 'bg-interactive-hover/70',
-                      // Timeline actions overlay the first line's meta
-                      // cluster, which fades instead, so the body keeps its
-                      // width on hover.
-                      isTimelineRow
-                        ? undefined
-                        : alwaysShowActions
-                          ? (isVSCode ? revealPaddingClass : alwaysActionPaddingClass)
-                          : (isSessionMenuOpen ? menuActionPaddingClass : revealPaddingClass),
-                    )}
+                  <SessionRowButtonView
+                    selectionMode={selectionModeEnabled} selected={isRowSelected} touchPressed={isTouchPressed}
+                    onPointerDown={handleRowPointerDown} onPointerUp={handleRowPointerEnd} onPointerCancel={handleRowPointerEnd}
+                    onMouseDown={handleRowMouseDown} onClick={(event) => handleRowSelect(event)}
+                    onDoubleClick={(event) => { event.stopPropagation(); handleSessionDoubleClick(session.id, sessionTitle); }}
+                    actionPadding={isTimelineRow ? undefined : alwaysShowActions ? (isVSCode ? revealPaddingClass : alwaysActionPaddingClass) : (isSessionMenuOpen ? menuActionPaddingClass : revealPaddingClass)}
                   >
                     {isTimelineRow ? timelineRowBody : (
-                    <div className="flex w-full items-center min-w-0 flex-1 gap-1 overflow-hidden">
-                      {/* Unread emphasis is color-only: a font-weight change
-                          would reflow the truncated title and cause a micro
-                          horizontal shift when the status flips. */}
-                      <div className={cn('block min-w-0 flex-1 truncate typography-ui-label font-normal', isActive || isRowSelected ? 'text-interactive-selection-foreground' : needsAttention ? 'text-foreground' : 'text-foreground/80')}>{renderHighlightedText(sessionTitle, normalizedSessionSearchQuery)}</div>
+                    <SessionRowTitleView title={renderHighlightedText(sessionTitle, normalizedSessionSearchQuery)} active={isActive} selected={isRowSelected} needsAttention={needsAttention}>
                       {!archivedBucket && sessionDirectory && renderContext === 'recent' ? (
                         <DirectoryActionIndicator
                           directory={sessionDirectory}
@@ -1716,9 +1675,9 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                           <span className="leading-none">{pendingFormCount}</span>
                         </span>
                       ) : null}
-                    </div>
+                    </SessionRowTitleView>
                     )}
-                  </button>
+                  </SessionRowButtonView>
                 </TooltipTrigger>
                 {/* VS Code already shows project context via workspace headers, so
                     the per-row metadata tooltip is redundant noise there. */}
@@ -1765,19 +1724,8 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
             </div>
           ) : null}
 
-          <div className={cn(
-            'absolute right-1 z-10 flex items-center gap-0.5 transition-opacity',
-            // Timeline actions overlay the first line's right cluster, not the
-            // row's vertical centre.
-            // Three-line rows: the row's 6px top padding plus the fixed 20px
-            // first line, so the 20px buttons cover that line exactly.
-            isTimelineRow && !isTimelineChatRow ? 'top-1.5 h-5' : 'top-1/2 -translate-y-1/2',
-            isSessionMenuOpen
-              ? 'opacity-100'
-              : (alwaysShowActions && !isVSCode)
-                ? 'opacity-100'
-                : cn('opacity-0', revealOnHoverClass),
-          )}>
+          <SessionRowActionsView timeline={isTimelineRow} timelineChat={isTimelineChatRow} menuOpen={isSessionMenuOpen}
+            alwaysShow={alwaysShowActions} vscode={isVSCode} revealClassName={revealOnHoverClass}>
             {showWorkAction ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1862,7 +1810,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
               </DropdownMenuTrigger>
               {sessionMenuContent}
             </DropdownMenu>
-          </div>
+          </SessionRowActionsView>
           </ContextMenu.Trigger>
           {contextMenuContent}
         </ContextMenu.Root>

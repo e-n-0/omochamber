@@ -3,6 +3,7 @@ import type { Message, Part, Session } from '@/lib/opencode/model';
 import { getLastConversationRecord, isIncompleteAssistantTurn } from '@/lib/opencode/model';
 
 import { ChatInput } from './ChatInput';
+import { ChatColumnView, ChatComposerSlotView } from './presentation/ChatColumnView';
 import { ChatColumnSessionContext, type ChatColumnSession } from './chatColumnSession';
 import { MobileCommentComposerContext, useMobileCommentComposerOwner } from './composer/comment/MobileCommentComposerContext';
 import { DraftPresetChips } from './DraftPresetChips';
@@ -1621,25 +1622,15 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 			scrollNode={scrollNode}
 			scrollToMessage={timelineController.scrollToMessage}
 		/>
-		<div data-composer-bound className="relative flex min-w-0 flex-1 flex-col h-full bg-background">
+		<ChatColumnView>
 			{returnToParentButton}
 			{sessionSurface}
 
-            <div
+            <ChatComposerSlotView
                 ref={attachComposerSlot}
-                // The mobile pill morph pins a floating slot for its tween.
-                data-composer-slot={floatingComposer ? 'floating' : 'flow'}
-                className={cn(
-                    'z-10 flex min-h-0',
-                    floatingComposer
-                        ? 'absolute inset-x-0 bottom-0'
-                        : 'relative',
-                    isDesktopExpandedInput
-                        ? 'flex-1 min-h-0 bg-background'
-                        : draftLayoutVisible && !useCompactDraftLayout
-                            ? 'flex-1 items-center justify-center bg-background pb-[6vh]'
-                        : !floatingComposer && 'bg-background'
-                )}
+                floatingComposer={floatingComposer}
+                expanded={isDesktopExpandedInput}
+                centeredDraft={draftLayoutVisible && !useCompactDraftLayout}
             >
                 {!draftLayoutVisible && !isDesktopExpandedInput && sessionMessages.length > 0 && (
                     /* One zero-height anchor on the slot's top edge for
@@ -1719,7 +1710,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                         draftPresentationExiting={draftPresentationExiting}
                     />
                 )}
-            </div>
+            </ChatComposerSlotView>
 
             {/* Inside the chat column, not beside it: as a row sibling it took
                 part in the flex layout and pushed the transcript, which is the
@@ -1744,7 +1735,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                 isLoadingEarlier={timelineController.isLoadingOlder}
                 onLoadEarlier={handleLoadOlderClick}
             />
-        </div>
+        </ChatColumnView>
         </ChatQuoteHighlightContext.Provider>
         </MobileCommentComposerContext.Provider>
         </ChatColumnSessionContext.Provider>

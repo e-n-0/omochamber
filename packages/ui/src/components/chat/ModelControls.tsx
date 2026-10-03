@@ -1,5 +1,6 @@
 import { OPENCODE_TOOLS } from '@/lib/opencode/tools';
 import React from 'react';
+import { ChatModelControlsView, ChatModelControlTriggerView } from './presentation/ChatModelControlsView';
 import { focusChatInput } from './composer/editor/dom';
 import { MobileModelButton } from './MobileModelButton';
 import type { EditPermissionMode } from '@/stores/types/sessionTypes';
@@ -2450,12 +2451,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                     <DropdownMenu open={isReady && agentMenuOpen} onOpenChange={isReady ? handleModelMenuOpenChange : undefined}>
                         <TooltipTrigger asChild>
                             <DropdownMenuTrigger asChild>
-                                <div
-                                    className={cn(
-                                        'model-controls__model-trigger flex items-center gap-1.5 cursor-pointer select-none hover:bg-transparent hover:opacity-70 min-w-0',
-                                        buttonHeight
-                                    )}
-                                >
+                                <ChatModelControlTriggerView kind="model" heightClass={buttonHeight}>
                                     {!modelSelectionReady ? (
                                         <>
                                             <Icon name="loader-4" className={cn(controlIconSize, 'animate-spin text-muted-foreground flex-shrink-0')} />
@@ -2498,7 +2494,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                             </span>
                                         </span>
                                     )}
-                                </div>
+                                </ChatModelControlTriggerView>
                             </DropdownMenuTrigger>
                         </TooltipTrigger>
                         <DropdownMenuContent
@@ -2801,12 +2797,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                 <DropdownMenu>
                     <TooltipTrigger asChild>
                         <DropdownMenuTrigger asChild>
-                            <div
-                                className={cn(
-                                    'model-controls__variant-trigger flex items-center gap-1.5 transition-colors cursor-pointer select-none hover:bg-transparent hover:opacity-70 min-w-0',
-                                    buttonHeight,
-                                )}
-                            >
+                            <ChatModelControlTriggerView kind="variant" heightClass={buttonHeight}>
                                 <Icon name="brain-ai-3" className={cn(controlIconSize, 'flex-shrink-0', colorClass)} />
                                 <span
                                     className={cn(
@@ -2819,7 +2810,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                 >
                                     {displayVariant}
                                 </span>
-                            </div>
+                            </ChatModelControlTriggerView>
                         </DropdownMenuTrigger>
                     </TooltipTrigger>
                     <DropdownMenuContent side="top" align="end" alignOffset={-40} className="w-[min(180px,calc(100vw-2rem))]">
@@ -3036,38 +3027,15 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
     };
 
     const inlineMobileSelection = isMobile && Boolean(selection);
-    const inlineClassName = cn(
-        '@container/model-controls flex items-center min-w-0',
-        // Only force full-width + truncation behaviors on true mobile layouts.
-        // VS Code also uses "compact" mode, but should keep its right-aligned inline sizing.
-        isMobile && 'w-full',
-        className,
-    );
-
-    return (
-        <>
-            <div className={inlineClassName}>
-                <div
-                    className={cn(
-                        'flex items-center min-w-0 flex-1',
-                        inlineMobileSelection ? 'justify-start' : 'justify-end',
-                        inlineGapClass,
-                        isMobile && 'overflow-hidden'
-                    )}
-                >
-                    {!inlineMobileSelection && renderVariantSelector()}
-                    {renderModelSelector()}
-                    {inlineMobileSelection && renderVariantSelector()}
-                    {!selection && !isAutoSelected && renderAgentSelector()}
-                </div>
-            </div>
-
+    return <ChatModelControlsView isMobile={isMobile} inlineMobileSelection={inlineMobileSelection}
+        className={className} gapClass={inlineGapClass} model={renderModelSelector()} thinking={renderVariantSelector()}
+        agent={!selection && !isAutoSelected ? renderAgentSelector() : null}
+        popups={<>
             {renderMobileModelPanel()}
             {renderMobileVariantPanel()}
             {!selection && !isAutoSelected && renderMobileAgentPanel()}
             {renderMobileModelTooltip()}
             {!selection && !isAutoSelected && renderMobileAgentTooltip()}
-        </>
-    );
+        </>} />;
 
 };

@@ -136,10 +136,10 @@ import { collectKnownTokenNames } from './composer/language/prefixTokens';
 import { resolveAutocompleteTrigger, type AutocompleteKind } from './composer/language/triggers';
 import { type ComposerLanguageContext } from './composer/language/tokenize';
 import {
-    ComposerEditor,
     type ComposerChange,
     type ComposerEditorHandle,
 } from './composer/editor/ComposerEditor';
+import { ChatComposerView, ChatComposerEditorView, ChatComposerFormView } from './presentation/ChatComposerView';
 import { useComposerHeightLimit } from './composer/editor/useComposerHeightLimit';
 import { createComposerEditorViewStore } from './composer/editor/viewStore';
 import { composerAutoCorrect } from './composer/editor/autocorrect';
@@ -3750,7 +3750,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
 
     return (
         <>
-        <form
+        <ChatComposerFormView
             ref={composerFormRef}
             data-btw-composer={isBtwActive ? 'true' : undefined}
             onKeyDownCapture={(event) => {
@@ -3771,12 +3771,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 }
                 handlePrimaryAction();
             }}
-            className={cn(
-                "relative w-full pt-0 pb-4",
-                isDesktopExpanded && 'flex h-full min-h-0 flex-col pt-4',
-                isMobileExpanded && 'flex h-full min-h-0 flex-col pt-2',
-                isMobile && 'bottom-safe-area oc-mobile-composer'
-            )}
+            isMobile={isMobile} isDesktopExpanded={isDesktopExpanded} isMobileExpanded={isMobileExpanded}
             style={isMobile && inputBarOffset > 0 ? { marginBottom: `${inputBarOffset}px` } : undefined}
         >
             {showDesktopDraftPresentation ? (
@@ -3929,34 +3924,10 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                     box's backdrop-filter: on the same element Chromium grows
                     the glass layer by the shadow's blur, and that band painted
                     a flat grey strip over the bottom of the goal row above. */}
-                <div
-                    className={cn(
-                        'flex flex-col',
-                        isComposerExpanded && 'flex-1 min-h-0',
-                        'shadow-[0_4px_16px_-4px_rgb(0_0_0_/_0.12)]',
-                    )}
-                    style={{ borderRadius: chatInputRadius }}
-                >
-                <div
-                    className={cn(
-                        "flex flex-col relative overflow-visible",
-                        isComposerExpanded && 'flex-1 min-h-0',
-                        "border border-border/80 focus-within:border-interactive-selection-foreground/35",
-                        // The box floats over the transcript, so it is glass.
-                        'oc-glass-composer',
-                        isDragging && "ring-2 ring-primary ring-offset-2"
-                    )}
-                    style={{ borderRadius: chatInputRadius }}
-                    ref={dropZoneRef}
-                    // The mobile pill morph measures and animates this box.
-                    data-composer-box={isMobile ? 'true' : undefined}
-                    onDropCapture={handleDropCapture}
-                    onDragEnter={handleDragEnter}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onDragEnd={handleDragEnd}
-                >
+                <ChatComposerView isExpanded={isComposerExpanded} radius={chatInputRadius} isDragging={isDragging}
+                    boxProps={{ ref: dropZoneRef, 'data-composer-box': isMobile ? 'true' : undefined,
+                        onDropCapture: handleDropCapture, onDragEnter: handleDragEnter, onDragOver: handleDragOver,
+                        onDragLeave: handleDragLeave, onDrop: handleDrop, onDragEnd: handleDragEnd }}>
                     {isDragging && (
                         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/90 rounded-xl">
                             <div className="text-center">
@@ -4019,7 +3990,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                                 }
                                 : undefined}
                         >
-                            <ComposerEditor
+                            <ChatComposerEditorView
                                 ref={composerRef}
                                 viewStore={composerViewStore}
                                 data-testid="chat-input"
@@ -4056,15 +4027,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                                 maxLines={isMobile ? MAX_MOBILE_COMPOSER_LINES : MAX_VISIBLE_COMPOSER_LINES}
                                 boundSelector={isMobile ? '[data-composer-bound]' : undefined}
                                 boundGapPx={MOBILE_COMPOSER_BOUND_GAP_PX}
-                                className={cn(
-                                    'min-h-[52px] px-3 relative z-10',
-                                    isComposerExpanded
-                                        ? cn('h-full min-h-0', isMobile ? 'py-2.5' : 'py-4')
-                                        : isMobile
-                                            ? 'pt-4 pb-2.5'
-                                            : 'pt-4 pb-2',
-                                    inputMode === 'shell' ? 'font-mono' : 'typography-markdown md:typography-ui-label',
-                                )}
+                                isMobile={isMobile}
+                                isExpanded={isComposerExpanded}
                             />
                         </div>
                     </div>
@@ -4121,8 +4085,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                     {mobileModelAgentRow}
                     </div>
 
-                </div>
-                </div>
+                </ChatComposerView>
                 </div>
                 </>
                 )}
@@ -4188,7 +4151,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 onSendMessage={handleQueuedMessageSend}
             />
             {currentSessionId ? <BtwPanel parentSessionId={currentSessionId} panel={btwPanel} onExit={handleExitBtw} /> : null}
-        </form>
+        </ChatComposerFormView>
 
         {/* Issue Picker Dialog */}
         <GitHubIssuePickerDialog

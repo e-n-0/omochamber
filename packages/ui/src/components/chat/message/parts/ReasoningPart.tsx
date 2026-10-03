@@ -2,7 +2,7 @@ import React from 'react';
 import { animate, type AnimationPlaybackControls } from 'motion';
 import type { Part } from '@/lib/opencode/model';
 import { cn } from '@/lib/utils';
-import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
+import { ChatReasoningTextView } from '../../presentation/ChatTranscriptView';
 import { Icon } from '@/components/icon/Icon';
 import type { IconName } from '@/components/icon/icons';
 import { BusyDots } from './BusyDots';
@@ -464,22 +464,16 @@ export const ReasoningTimelineBlock: React.FC<ReasoningTimelineBlockProps> = ({
                             className="pointer-events-none absolute left-0 top-0 bottom-0 w-px"
                             style={{ backgroundColor: 'var(--tools-border)' }}
                         />
-                        <ScrollableOverlay
+                        <ChatReasoningTextView
                             ref={scrollBoxRef}
-                            as="div"
                             outerClassName={presentation?.maxHeightClassName ?? 'max-h-80'}
-                            className="p-0"
-                            useScrollShadow
-                            scrollShadowSize={36}
-                            userIntentOnly
-                            data-scrollable="true"
                             onWheel={handleBoxWheel}
                             onTouchStart={handleBoxTouchStart}
                             onTouchMove={handleBoxTouchMove}
                             onScroll={handleBoxScroll}
                         >
                             <div>{reasoningBody}</div>
-                        </ScrollableOverlay>
+                        </ChatReasoningTextView>
                     </div>
                 </div>
             ) : null}

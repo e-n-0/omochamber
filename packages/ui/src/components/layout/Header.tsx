@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react';
+import { HeaderView } from './HeaderView';
+import { HeaderTitleView } from './HeaderTitleView';
 import { useGuestsStore } from '@/lib/guests/store';
 import {
   Tooltip,
@@ -1343,36 +1345,75 @@ export const Header: React.FC = () => {
   }, [copySessionIdFor, currentSession, exportCurrentSession, isChatContext, isCurrentSessionActive, isCurrentSessionMovingToWorktree, isVSCode, moveCurrentSessionToWorktree, renderGuestSessionActionItems, sessionDirectory, t]);
 
   const renderDesktop = () => (
-    <div
-      onMouseDown={handleDragStart}
-      className={cn(
-        'app-region-drag relative flex h-12 select-none items-center',
-        usesFramelessChrome && windowControlsSide === 'right' ? 'pr-0' : 'pr-3',
-        macosHeaderSizeClass
-      )}
-      style={webWindowControlsOverlayStyle}
-      role="tablist"
-      aria-label={t('header.navigation.mainAria')}
+    <HeaderView onMouseDown={handleDragStart}
+      frameless={usesFramelessChrome} windowControlsSide={windowControlsSide}
+      insetWidth={headerInsetSpacerWidth} controlsWidth={headerControlsSpacerWidth}
+      className={macosHeaderSizeClass} style={webWindowControlsOverlayStyle}
+      fillSpace={Boolean(activeSurfaceHeader || isVSCode || !sessionTabsEnabled)}
+      actions={<>
+          {showDesktopHeaderContextUsage && stableDesktopContextUsage ? (
+            <ContextUsageDisplay
+              reading={toContextUsageReading(stableDesktopContextUsage)}
+              contextLimit={stableDesktopContextUsage.contextLimit}
+              outputLimit={stableDesktopContextUsage.outputLimit ?? 0}
+              size="compact"
+              hideIcon
+              showPercentIcon
+              onClick={handleOpenContextPanel}
+              pressed={isContextPanelActive}
+              className={!showMiniChatHeaderAction ? 'mr-3.5' : ''}
+              valueClassName="typography-ui-label font-medium leading-none text-foreground"
+              percentIconClassName="h-4.5 w-4.5"
+            />
+          ) : null}
+
+          <HeaderIconActionButton
+            visible={showMiniChatHeaderAction}
+            title={isNewSessionDraftOpen ? t('header.actions.newMiniChat') : t('header.actions.openSessionMiniChat')}
+            ariaLabel={isNewSessionDraftOpen ? t('header.actions.newMiniChatAria') : t('header.actions.openSessionMiniChatAria')}
+            onClick={handleOpenCurrentMiniChat}
+            className={cn(desktopHeaderIconButtonClass, 'mr-1')}
+            Icon={'picture-in-picture-2'}
+          />
+          {!isVSCode ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  data-work-status-toggle="true"
+                  aria-pressed={workStatusToggleActive}
+                  aria-label={t('header.workStatusPanel.toggleAria')}
+                  onClick={handleWorkStatusToggle}
+                  className={cn(
+                    DESKTOP_HEADER_ICON_BUTTON_CLASS,
+                    // Trailing gap before the sidebar actions; it moved here
+                    // with the button when this took the last position.
+                    'mr-1',
+                    // On is the resting state and carries no chrome; off is the
+                    // one worth signalling, so it dims instead of filling.
+                    workStatusToggleActive ? 'text-foreground' : 'text-muted-foreground/50',
+                  )}
+                >
+                  <Icon name="list-indefinite" className="h-[18px] w-[18px]" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {workStatusPanelEnabled && !workStatusPanelFits
+                  ? (workStatusOverlayOpen
+                    ? t('header.workStatusPanel.hide')
+                    : t('header.workStatusPanel.showOverlay'))
+                  : workStatusPanelEnabled
+                    ? t('header.workStatusPanel.hide')
+                    : t('header.workStatusPanel.show')}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
+
+          {desktopSidebarActions}
+          <WindowsWindowControls visible={usesFramelessChrome && windowControlsSide === 'right'} position="right" />
+</>}
     >
-      {/* Drag region for the window-controls inset (traffic lights) to the left
-          of the overlay buttons — stays a window drag area. */}
-      <div
-        aria-hidden
-        className="shrink-0 self-stretch transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
-        style={{ width: headerInsetSpacerWidth }}
-      />
-      {/* No-drag carve under the persistent TitlebarLeftControls overlay so its
-          buttons stay clickable. Width animates with the sidebar so the session
-          title slides in lockstep instead of snapping. */}
-      <div
-        aria-hidden
-        className="app-region-no-drag shrink-0 self-stretch transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
-        style={{ width: headerControlsSpacerWidth }}
-      />
-      {/* Sidebar toggle + project actions live in the persistent
-          TitlebarLeftControls overlay; the spacers above reserve its footprint
-          while the sidebar is closed. */}
-      <div className="flex min-w-0 flex-1 items-center">
+
         {activeSurfaceHeader ? (
           <>
           <Tooltip>
@@ -1401,9 +1442,10 @@ export const Header: React.FC = () => {
           </div>
           </>
         ) : (isVSCode || !sessionTabsEnabled) ? (
-          <div className="app-region-no-drag mr-3 flex min-w-0 max-w-full items-center gap-0.5 py-0.5 -my-0.5 text-left">
-            {isCurrentSessionAiRenaming ? <Icon name="loader-4" className="mr-1 size-3 shrink-0 animate-spin text-primary" aria-label={t('sessions.aiRename.generating')} /> : null}
-            {!isSidebarOpen ? (
+          <HeaderTitleView
+            title={isNewSessionDraftOpen ? undefined : currentSessionTitle}
+            generating={isCurrentSessionAiRenaming}
+            switcher={!isSidebarOpen ? (
               <SessionSwitcherDropdown align="start">
                 <button
                   type="button"
@@ -1414,9 +1456,7 @@ export const Header: React.FC = () => {
                 </button>
               </SessionSwitcherDropdown>
             ) : null}
-            <div className="flex min-w-0 flex-col justify-center px-1">
-              {isRenamingHeaderSession ? (
-                <form
+            editing={isRenamingHeaderSession ? (<form
                   ref={headerRenameFormRef}
                   className="flex w-full min-w-0 items-center gap-2 leading-tight"
                   onPointerDown={(event) => event.stopPropagation()}
@@ -1450,15 +1490,8 @@ export const Header: React.FC = () => {
                   >
                     <Icon name="close" className="size-4" />
                   </button>
-                </form>
-              ) : isNewSessionDraftOpen ? null : (
-                <span className="truncate typography-ui-label text-[14px] font-normal leading-tight text-foreground max-w-full">
-                  {currentSessionTitle}
-                </span>
-              )}
-              {showHeaderMetaRow ? (
-                <span className="flex min-w-0 max-w-full items-center gap-1.5 truncate typography-micro text-[10.5px] font-normal leading-tight text-muted-foreground/75">
-                  {activeProjectLabel ? <span className="truncate">{activeProjectLabel}</span> : null}
+                </form>) : undefined}
+            metadata={showHeaderMetaRow ? (<>{activeProjectLabel ? <span className="truncate">{activeProjectLabel}</span> : null}
                   {currentBranchLabel ? (
                     <span className="inline-flex min-w-0 items-center gap-0.5">
                       <Icon name="git-branch" className="h-3 w-3 flex-shrink-0 text-muted-foreground/70" />
@@ -1473,17 +1506,8 @@ export const Header: React.FC = () => {
                       <Icon name="alert" className="h-3 w-3 flex-shrink-0" />
                       <span className="truncate">{worktreeBadge}</span>
                     </span>
-                  ) : null}
-                </span>
-              ) : null}
-            </div>
-            <div className={cn(
-              'flex h-[18px] shrink-0 items-center justify-center',
-              // Top-aligned only when the title has a metadata line under it;
-              // alone, the title is centred and the button must follow.
-              showHeaderMetaRow ? 'self-start' : 'self-center',
-            )}>
-              {currentSessionId && !isNewSessionDraftOpen && !isRenamingHeaderSession ? (
+                  ) : null}</>) : undefined}
+            menu={currentSessionId && !isNewSessionDraftOpen && !isRenamingHeaderSession ? (
                 <DropdownMenu
                   open={isHeaderSessionMenuOpen}
                   onOpenChange={setIsHeaderSessionMenuOpen}
@@ -1539,8 +1563,7 @@ export const Header: React.FC = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : null}
-            </div>
-          </div>
+          />
         ) : (
           <div className="app-region-no-drag flex h-full min-w-0 flex-1 items-center gap-0.5 text-left">
             {!isSidebarOpen ? (
@@ -1611,72 +1634,8 @@ export const Header: React.FC = () => {
           </div>
         )}
 
-        {activeSurfaceHeader || isVSCode || !sessionTabsEnabled ? <div className="flex-1" /> : null}
 
-        <div className="flex shrink-0 items-center gap-1">
-          {showDesktopHeaderContextUsage && stableDesktopContextUsage ? (
-            <ContextUsageDisplay
-              reading={toContextUsageReading(stableDesktopContextUsage)}
-              contextLimit={stableDesktopContextUsage.contextLimit}
-              outputLimit={stableDesktopContextUsage.outputLimit ?? 0}
-              size="compact"
-              hideIcon
-              showPercentIcon
-              onClick={handleOpenContextPanel}
-              pressed={isContextPanelActive}
-              className={!showMiniChatHeaderAction ? 'mr-3.5' : ''}
-              valueClassName="typography-ui-label font-medium leading-none text-foreground"
-              percentIconClassName="h-4.5 w-4.5"
-            />
-          ) : null}
-
-          <HeaderIconActionButton
-            visible={showMiniChatHeaderAction}
-            title={isNewSessionDraftOpen ? t('header.actions.newMiniChat') : t('header.actions.openSessionMiniChat')}
-            ariaLabel={isNewSessionDraftOpen ? t('header.actions.newMiniChatAria') : t('header.actions.openSessionMiniChatAria')}
-            onClick={handleOpenCurrentMiniChat}
-            className={cn(desktopHeaderIconButtonClass, 'mr-1')}
-            Icon={'picture-in-picture-2'}
-          />
-          {!isVSCode ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  data-work-status-toggle="true"
-                  aria-pressed={workStatusToggleActive}
-                  aria-label={t('header.workStatusPanel.toggleAria')}
-                  onClick={handleWorkStatusToggle}
-                  className={cn(
-                    DESKTOP_HEADER_ICON_BUTTON_CLASS,
-                    // Trailing gap before the sidebar actions; it moved here
-                    // with the button when this took the last position.
-                    'mr-1',
-                    // On is the resting state and carries no chrome; off is the
-                    // one worth signalling, so it dims instead of filling.
-                    workStatusToggleActive ? 'text-foreground' : 'text-muted-foreground/50',
-                  )}
-                >
-                  <Icon name="list-indefinite" className="h-[18px] w-[18px]" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {workStatusPanelEnabled && !workStatusPanelFits
-                  ? (workStatusOverlayOpen
-                    ? t('header.workStatusPanel.hide')
-                    : t('header.workStatusPanel.showOverlay'))
-                  : workStatusPanelEnabled
-                    ? t('header.workStatusPanel.hide')
-                    : t('header.workStatusPanel.show')}
-              </TooltipContent>
-            </Tooltip>
-          ) : null}
-
-          {desktopSidebarActions}
-          <WindowsWindowControls visible={usesFramelessChrome && windowControlsSide === 'right'} position="right" />
-        </div>
-      </div>
-    </div>
+    </HeaderView>
   );
 
   // The divider lives on the chat content wrapper instead of the header, so it

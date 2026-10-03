@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { WorkStatusRowAction } from '@/components/chat/work-status/WorkStatusPresentation';
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/lib/i18n';
 import { nativeCommandSchema } from '../contracts';
@@ -35,7 +36,7 @@ export function GoalPanel({ store, sessionKey }: { readonly store: NativeStore; 
           {goal.status === 'blocked' && <p className="break-words typography-meta text-[var(--status-warning-text)]">{goal.blockedReason}</p>}
           <div className="flex flex-wrap gap-2">
             {goal.status === 'active' && <Button size="sm" variant="outline" disabled={!enabled} data-testid="omo-goal-pause" onClick={() => { void action.execute({ type: 'goalPause' }); }}>{t('omo.panels.goal.pause')}</Button>}
-            {(goal.status === 'paused' || goal.status === 'blocked') && <Button size="sm" variant="outline" disabled={!enabled} data-testid="omo-goal-resume" onClick={() => { void action.execute({ type: 'goalResume' }); }}>{t('omo.panels.goal.resume')}</Button>}
+            {(goal.status === 'paused' || goal.status === 'blocked') && <WorkStatusRowAction disabled={!enabled} testId="omo-goal-resume" onClick={() => { void action.execute({ type: 'goalResume' }); }}>{t('omo.panels.goal.resume')}</WorkStatusRowAction>}
             <Button size="sm" variant="destructive" disabled={!enabled} data-testid="omo-goal-clear" onClick={() => { void action.execute({ type: 'goalClear' }); }}>{t('omo.panels.goal.clear')}</Button>
           </div>
         </div>

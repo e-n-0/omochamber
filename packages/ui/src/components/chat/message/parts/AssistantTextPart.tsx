@@ -1,4 +1,5 @@
 import React from 'react';
+import { ChatAssistantTextView } from '../../presentation/ChatTranscriptView';
 import type { Part } from '@/lib/opencode/model';
 import { MarkdownRenderer } from '../../MarkdownRenderer';
 import type { StreamPhase, ToolPopupContent } from '../types';
@@ -76,18 +77,18 @@ const AssistantTextPart: React.FC<AssistantTextPartProps> = ({
     const generatedResult = !isStreaming && isFinalized ? parseGeneratedJsonResult(displayTextContent) : null;
     if (generatedResult) {
         return (
-            <div
-                className={`group/assistant-text relative break-words ${chatRenderMode === 'live' ? 'my-1' : ''}`}
+            <ChatAssistantTextView
+                className={chatRenderMode === 'live' ? 'my-1' : undefined}
                 key={part.id || `${messageId}-text`}
             >
                 <GeneratedJsonResultCard result={generatedResult} />
-            </div>
+            </ChatAssistantTextView>
         );
     }
 
     return (
-        <div
-            className={`group/assistant-text relative break-words ${chatRenderMode === 'live' ? 'my-1' : ''}`}
+        <ChatAssistantTextView
+            className={chatRenderMode === 'live' ? 'my-1' : undefined}
             key={part.id || `${messageId}-text`}
         >
             <MarkdownRenderer
@@ -101,7 +102,7 @@ const AssistantTextPart: React.FC<AssistantTextPartProps> = ({
                 enableFileReferences={isFinalized}
                 onShowPopup={onShowPopup}
             />
-        </div>
+        </ChatAssistantTextView>
     );
 };
 

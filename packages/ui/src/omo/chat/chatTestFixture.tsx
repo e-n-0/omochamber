@@ -1,6 +1,8 @@
 import { afterAll, expect } from 'bun:test';
+import { plugin } from 'bun';
 import assert from 'node:assert/strict';
 import React, { act } from 'react';
+import { EditorView } from '@codemirror/view';
 import { Window } from 'happy-dom';
 import { createNativeClient } from '../client';
 import { createNativeStore } from '../state';
@@ -11,9 +13,11 @@ import type { CommandEnvelope, NativeEvent, NativeSnapshot, SessionEvent, UiResp
 export const browser = new Window({ url: 'http://localhost' });
 const descriptors = new Map<string, PropertyDescriptor | undefined>();
 for (const [name, value] of Object.entries({
+  Worker: undefined, customElements: browser.customElements, DOMParser: browser.DOMParser,
   window: browser, document: browser.document, navigator: browser.navigator, localStorage: browser.localStorage,
   HTMLElement: browser.HTMLElement, HTMLAnchorElement: browser.HTMLAnchorElement, HTMLInputElement: browser.HTMLInputElement,
   HTMLTextAreaElement: browser.HTMLTextAreaElement, Element: browser.Element, Node: browser.Node,
+  Document: browser.Document, Text: browser.Text, Range: browser.Range, HTMLButtonElement: browser.HTMLButtonElement,
   DocumentFragment: browser.DocumentFragment, MutationObserver: browser.MutationObserver, ResizeObserver: browser.ResizeObserver,
   getComputedStyle: browser.getComputedStyle.bind(browser), requestAnimationFrame: browser.requestAnimationFrame.bind(browser),
   cancelAnimationFrame: browser.cancelAnimationFrame.bind(browser), Event: browser.Event,
@@ -23,11 +27,35 @@ for (const [name, value] of Object.entries({
   descriptors.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
   Object.defineProperty(globalThis, name, { value, configurable: true });
 }
+// Match Vite's worker-URL transform without replacing the markdown pipeline.
+plugin({ name: 'native-dom-worker-url', setup(build) {
+  build.onLoad({ filter: /\.worker\.ts\?worker&url$/ }, (args) => ({ contents: `export default ${JSON.stringify(args.path)};`, loader: 'js' }));
+} });
+
+
+// Happy DOM has no layout engine. Give the real list a bounded viewport so
+// these small history fixtures are mounted by LegendList rather than mocked.
+const elementPrototype = browser.HTMLElement.prototype;
+const layoutDescriptors = new Map<string, PropertyDescriptor | undefined>();
+for (const [key, size] of Object.entries({ clientHeight: 2400, clientWidth: 960 })) {
+  const descriptor = Object.getOwnPropertyDescriptor(elementPrototype, key);
+  layoutDescriptors.set(key, descriptor);
+  Object.defineProperty(elementPrototype, key, { configurable: true, get() { return size; } });
+}
+layoutDescriptors.set('getBoundingClientRect', Object.getOwnPropertyDescriptor(elementPrototype, 'getBoundingClientRect'));
+Object.defineProperty(elementPrototype, 'getBoundingClientRect', { configurable: true, value: function(this: HTMLElement) {
+  return new browser.DOMRect(0, 0, 960, this.matches('[data-testid="omo-transcript"]') ? 2400 : 320);
+} });
+
 const { createRoot } = await import('react-dom/client');
 const { I18nProvider } = await import('@/lib/i18n');
 
 afterAll(async () => {
   await browser.happyDOM.close();
+  for (const [key, descriptor] of layoutDescriptors) {
+    if (descriptor) Object.defineProperty(elementPrototype, key, descriptor);
+    else Reflect.deleteProperty(elementPrototype, key);
+  }
   for (const [name, descriptor] of descriptors) {
     if (descriptor) Object.defineProperty(globalThis, name, descriptor);
     else Reflect.deleteProperty(globalThis, name);
@@ -133,18 +161,45 @@ export async function mount(element: React.ReactNode) {
   };
 }
 
+export function untilDOM(host: HTMLElement, predicate: () => boolean): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timeout = AbortSignal.timeout(3_000);
+    const cleanup = () => { observer.disconnect(); timeout.removeEventListener('abort', expired); };
+    const expired = () => { cleanup(); reject(new Error('Native DOM transition timed out')); };
+    const check = () => { if (predicate()) { cleanup(); resolve(); } };
+    const observer = new MutationObserver(check);
+    observer.observe(host, { subtree: true, childList: true, characterData: true, attributes: true });
+    timeout.addEventListener('abort', expired, { once: true });
+    check();
+  });
+}
+
+export function draftValue(selector = '[data-testid="omo-draft"]'): string {
+  const host = document.querySelector(selector);
+  const content = host?.querySelector('.cm-content');
+  assert(content instanceof HTMLElement, 'The actual composer editor must be mounted');
+  const editor = EditorView.findFromDOM(content);
+  assert(editor, 'The composer must expose its real CodeMirror view');
+  return editor.state.doc.toString();
+}
+
 export async function type(selector: string, text: string) {
   const field = document.querySelector(selector);
+  assert(field);
+  const content = field.querySelector('.cm-content');
+  if (content instanceof HTMLElement) {
+    const editor = EditorView.findFromDOM(content);
+    assert(editor, 'The composer must expose its real CodeMirror view');
+    await act(async () => editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: text }, selection: { anchor: text.length } }));
+    return;
+  }
   assert(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement);
   const prototype = field instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype;
   const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
   assert(setter);
-  await act(async () => {
-    setter.call(field, text);
-    field.dispatchEvent(new Event('input', { bubbles: true }));
-    field.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  await act(async () => { setter.call(field, text); field.dispatchEvent(new Event('input', { bubbles: true })); field.dispatchEvent(new Event('change', { bubbles: true })); });
 }
+
 export function click(selector: string) {
   return act(async () => {
     const button = document.querySelector(selector);

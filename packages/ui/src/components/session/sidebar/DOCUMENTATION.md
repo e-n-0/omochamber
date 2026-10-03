@@ -1,5 +1,52 @@
 # Session Sidebar
 
+## Shared native presentation
+
+The original desktop chrome is shared through `layout/HeaderView`,
+`HeaderTitleView`, `TitlebarLeftControlsView` and `SidebarView`. The original
+wrappers supply their existing controllers through typed props and slots. Native
+callers supply native actions and supported appearance controls instead; they do
+not mount those wrappers or start legacy SDK/session controllers. `SidebarTopBar`
+stays unchanged.
+
+Project presentation lives in `projects/ProjectHeaderView` and
+`ProjectIdentityView`. `DirectoryHeaderView`, `DirectoryLabelView` and
+`SessionGroupView` share the original directory labels, collapse controls and
+body geometry. `DirectoryNewSessionView` owns the original group create button;
+`SessionGroupSection` supplies its existing draft callback, while native callers
+can supply session creation and translated non-draft labels. The button stops
+propagation and accepts disablement without disabling the group toggle.
+`sessions/SessionRowView` owns the original row frame, selection
+button, title and action slots; display rows do not fetch data. Original
+sortable/group/session wrappers consume those views rather than duplicate them.
+
+`omo/navigation/NativeNavigation` binds native inventory and selection callbacks
+to these views. Project membership uses only registered project paths and
+worktree paths, never a guessed OpenCode hierarchy. Unregistered sessions remain
+visible outside project groups. Routing and row identity use opaque
+`sessionKey` values, not durable session IDs. Native ownership and names remain
+authoritative in `NativeStore`; the navigation adapter does not maintain a
+second inventory or turn fetch failures into empty data. Callers retain their
+previous inventory and pass its failure separately.
+
+`NativeSessionSidebarProps` preserves the established native session inputs and
+create/select/refresh callbacks. Optional registered directories and directory
+selection bind worktree headers; presentation-only toolbar/feedback flags let
+the project binder show inventory feedback once. `omo/SessionSidebar` remains
+a compatibility export. `NativeNavigationProps.onCreateInDirectory` receives
+the registered `NativeProject` and exact directory when the original project or
+directory create action is used. These actions remain absent without that
+callback, and respect `canCreate` and `creating` when supplied. They do not
+change selection before calling the owner, so creation cannot race a selected
+directory update. The existing `onCreate`, `onSelect`, `onRefresh`, inventory and
+store inputs remain unchanged. `NativeSessionSidebarProps.directoryActions`
+is a display slot for directory controls, not a data source.
+
+The project binder suppresses the standalone native Sessions toolbar. The
+parent supplies supported refresh, new-session and appearance controls through
+the shared header/titlebar slots. Native web and local Electron use this binding; the
+existing VS Code, hosted-mobile and Capacitor controllers remain unchanged.
+
 Sidebar code is organized by the business object it owns. Shared contracts are
 kept at this root in `types.ts` and `utils.tsx`.
 

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { WorkStatusRow, WorkStatusRowAction } from '@/components/chat/work-status/WorkStatusPresentation';
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/lib/i18n';
 import type { NativeClient } from '../client';
@@ -58,10 +59,7 @@ function TaskRow({ client, store, sessionKey, task }: {
 
   return (
     <article data-task-id={task.taskId} className="min-w-0 space-y-3 rounded-lg border border-border p-3">
-      <div className="flex flex-wrap items-start gap-2">
-        <h4 className="min-w-0 flex-1 break-words typography-ui-label font-medium">{task.taskSummary || task.description || task.name || task.taskId}</h4>
-        <RecordedStatus status={task.status} />
-      </div>
+      <WorkStatusRow label={task.taskSummary || task.description || task.name || task.taskId} value={<RecordedStatus status={task.status} />} />
       <p data-task-source={task.source} className="typography-meta text-muted-foreground">
         {task.source === 'live' && writable ? t('omo.panels.tasks.live') : t('omo.panels.tasks.recorded')}
       </p>
@@ -69,9 +67,9 @@ function TaskRow({ client, store, sessionKey, task }: {
       {task.error && <p className="break-words typography-meta text-[var(--status-error-text)]">{task.error}</p>}
       {task.output !== undefined && <pre data-testid="omo-task-recorded-output" className="whitespace-pre-wrap break-words font-mono typography-code">{task.output}</pre>}
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" disabled={!enabled || loading} data-testid="omo-task-output-status" onClick={() => { void readOutput({ mode: 'status' }); }}>{t('omo.panels.tasks.outputStatus')}</Button>
-        <Button size="sm" variant="outline" disabled={!enabled || loading} data-testid="omo-task-output-tail" onClick={() => { void readOutput({ mode: 'tail', tailLines: 60 }); }}>{t('omo.panels.tasks.outputTail')}</Button>
-        <Button size="sm" variant="outline" disabled={!enabled || loading} data-testid="omo-task-output-full" onClick={() => { void readOutput({ mode: 'full' }); }}>{t('omo.panels.tasks.outputFull')}</Button>
+        <WorkStatusRowAction disabled={!enabled || loading} testId="omo-task-output-status" onClick={() => { void readOutput({ mode: 'status' }); }}>{t('omo.panels.tasks.outputStatus')}</WorkStatusRowAction>
+        <WorkStatusRowAction disabled={!enabled || loading} testId="omo-task-output-tail" onClick={() => { void readOutput({ mode: 'tail', tailLines: 60 }); }}>{t('omo.panels.tasks.outputTail')}</WorkStatusRowAction>
+        <WorkStatusRowAction disabled={!enabled || loading} testId="omo-task-output-full" onClick={() => { void readOutput({ mode: 'full' }); }}>{t('omo.panels.tasks.outputFull')}</WorkStatusRowAction>
         {cancellable && <Button size="sm" variant="destructive" disabled={!enabled} data-testid="omo-task-cancel" onClick={() => { void action.execute({ type: 'taskCancel', taskId: task.taskId }); }}>{t('omo.panels.tasks.cancel')}</Button>}
       </div>
       {loading && <p role="status" className="typography-meta text-muted-foreground">{t('common.loading')}</p>}

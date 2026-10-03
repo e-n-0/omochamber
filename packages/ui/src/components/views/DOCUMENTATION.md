@@ -1,5 +1,27 @@
 # Retained context views
 
+`ContextPanelFrame` and `ContextPanelHeader` hold the original context aside,
+header controls and resize DOM. `useContextPanelGeometry` owns measured pixel
+geometry and the sampled resize interaction. Callers own directory-scoped
+preferences; a resize reports pixels and the measured available width. A
+changed directory/tool owner or closed/expanded panel cancels the active drag.
+
+`ContextPanelRailView` and `ContextPanelRailItemView` hold the original rail
+list and button JSX. The legacy rail supplies sortable bindings, surface
+metadata and its settings footer. Native callers supply only supported tools
+and their controlled selection; these views import no legacy controllers.
+
+`NativeContextPanel` uses this same context shell. It keeps one
+`NativeWorkspaceContents` owner mounted through close, expand and tool
+changes. Visited directories retain file drafts and terminal owners. Explicit
+visibility is combined with the selected directory/tool before passing
+`active` to native files, changes and terminals. Closing detaches terminal
+transport; it never closes the PTY. `NativeWorkbench` keeps its existing
+public props by rendering the same contents with visibility enabled.
+
+Context Escape yields to editors, terminals and portalled menus/dialogs.
+Native imports target these dependency-clean files, not the legacy wrappers.
+
 `ContextPanel` keeps file, diff and walkthrough views mounted to preserve
 navigation, expanded sections and editor state. Its `visible` prop combines
 the panel's open state with the selected tab. Hiding via CSS alone does not

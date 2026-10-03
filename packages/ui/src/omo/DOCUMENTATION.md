@@ -11,10 +11,11 @@ This directory owns the native browser application shared with local Electron. I
 | `contracts.ts` | Zod application wire codec and public views, including `NativeSnapshot`, `NativeCommand`, `PendingInteraction`, goal/todo/task/DAG projections and event envelopes |
 | `client.ts` | `createNativeClient`, `NativeClient`, `NativeClientError` and `NativeSubscription`; parsed HTTP/SSE, deadlines and submission correlation |
 | `state.ts` | `createNativeStore`, `NativeStore`, `NativeStateError` and external store state; selection, hydration, event reduction and mutation ledger |
-| `OmoApp.tsx` | Native shell, project/directory/session selection, persistent chat, context rail and directory-scoped layout preferences |
+| `OmoApp.tsx` | Native lifecycle/data coordinator; binds the original shared layout to project/directory/session selection and directory-scoped layout preferences |
 | `AuthGate.tsx` | Same-origin password login before workspace initialization |
 | `AppearanceProvider.tsx`, `appearance/` | Native appearance settings and semantic theme/font/density application |
 | `chat/` | Active-branch transcript, live content/tools, composer/model controls and native dialogs |
+| `navigation/` | Native project/directory grouping, opaque session selection and rename controls using original header/group/session-row views |
 | `panels/` | Goal/task controls and read-only todo/DAG views |
 | `workbench/` | Directory-scoped files/editor, changes/staging/worktrees and actual PTY transport |
 | `desktop/adapter.ts` | `NativeDesktopBridge`, `NativeDesktopCapabilities`, `createNativeDesktopCapabilities`; per-operation IPC reply parsing |
@@ -44,6 +45,8 @@ Snapshots carry schema version 1, the opaque session key, durable conversation I
 
 History is the root-to-leaf active ancestry, not every append-order record. The codec rejects missing or cyclic ancestry. Persisted entries and live content reconcile by identity; rendered persisted tool results replace their live counterpart. Native `agent_settled`/`agent_idle` owns idle state, not a low-level turn-end event.
 
+`NativeTranscript` gives the shared virtual list only visible branch entries. Hidden native metadata remains in the authoritative snapshot without reserving empty rows. Initial selection, reopening and delayed snapshot hydration position the measured list at the latest visible entry. Measured rewraps and footer growth preserve a held end pin; scrolling to older history releases it before older rows are measured.
+
 After reload, select the same native session to restore its active history and continue through its native owner. This is linear continuation. There is no branch selector, rollback, OpenCode history migration or dual-engine operation.
 
 Transport recovery may reopen reads and subscriptions. It never automatically replays a prompt, goal action, task control or interaction answer. Detach marks outstanding submissions uncertain. An HTTP `202` records acceptance; a correlated command result settles it. Inspect native history/state before deciding whether to submit new work after an uncertain result.
@@ -64,13 +67,16 @@ Every work projection is `ready`, `incomplete` or `unavailable`. Partial/failed 
 
 ## Local workspace and appearance
 
-The native shell follows the original OpenChamber layout without importing its legacy controllers:
+`OmoApp` mounts the original OpenChamber presentation components. The legacy wrappers use the same extracted views; native startup does not mount their controllers:
 
-- A full-height left sidebar starts at 280 px and resizes between 264 and 500 px. The sidebar toggle and native New session action stay in one top-left control cluster, including while navigation is collapsed.
-- The 48 px header sits above the main workspace, beside the sidebar. Files, Changes and Terminal open from the 44 px right icon rail.
-- Chat stays mounted beside the context pane. Selecting the active rail icon closes that pane. Expand grows the same pane leftwards from its right anchor; collapse and resize preserve its workbench and editor identity.
-- `NativePanels` occupies a 300 px work-status card inside the chat column and yields whenever context opens. Its own drafts and retained native projections stay mounted while hidden.
-- Compact layouts use the same persistent controls, a navigation overlay and vertically shared chat/context space. Narrow screens stack work status below chat. Native dialogs remain outside these layout changes.
+- `MainLayoutView`, `HeaderView`, `HeaderTitleView`, `SidebarView` and `TitlebarLeftControlsView` own the original layout and chrome. The full-height sidebar starts at 280 px and resizes between 264 and 500 px.
+- `NativeNavigation` binds registered directories and opaque native session keys to the original project headers, directory groups and session rows. Selecting a session also selects its registered workspace; unregistered retained sessions do not grant workspace access.
+- The chat presentation modules own the original LegendList transcript, Markdown/reasoning wrappers, CodeMirror editor, composer footer and model controls. `ChatColumnView` and `ChatComposerSlotView` preserve the original floating slot; the native adapter measures its height for transcript clearance.
+- `NativeContextPanel` binds one retained workspace owner to the original `ContextPanelFrame` and header. Files, Changes and Terminal use the original 44 px rail. Close, resize, expand and tool changes preserve editor/PTy identity; hidden tools remain inactive.
+- `NativeWorkStatusPanel` places native goal/task/todo/DAG children in the original 300 px `WorkStatusFrame`. The card yields when it cannot fit beside chat. Compact layouts open it as an overlay through the same header action. Hiding must preserve native drafts and retained output while immediately making the frame inert.
+- Compact navigation uses an overlay. Native dialogs remain outside the layout columns so pending responses survive workspace/tool changes.
+
+There is no parallel native-shell stylesheet. Shared presentation owns geometry, icons and typography. The native coordinator supplies the macOS traffic-light inset only when native desktop capability is present.
 
 `OmoApp` owns browser layout preferences under `omochamber.layout:<encoded canonical directory>`. It parses version 1 preferences before using sidebar visibility/width, work-status visibility, context tool/visibility, expansion and per-tool width fractions. Hydration never writes defaults. Explicit changes write synchronously to their captured directory; pointer resizing persists on release, and cancel restores the starting width. Missing preferences use defaults. Malformed or failed storage reads/writes show an error while leaving native inventory and execution state intact.
 

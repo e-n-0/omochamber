@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { WorkStatusSection, WorkStatusValue } from '@/components/chat/work-status/WorkStatusPresentation';
 import { Icon } from '@/components/icon/Icon';
 import type { IconName } from '@/components/icon/icons';
 import { useI18n } from '@/lib/i18n';
@@ -13,13 +14,12 @@ export function PanelSection({ id, title, icon, children }: {
   readonly children: ReactNode;
 }) {
   return (
-    <section aria-labelledby={`${id}-heading`} data-testid={id} className="min-w-0 space-y-3 border-b border-border p-4">
-      <h3 id={`${id}-heading`} className="flex items-center gap-2 typography-ui-header font-semibold text-foreground">
-        <Icon name={icon} className="size-4 shrink-0 text-muted-foreground" />
-        {title}
-      </h3>
+    <WorkStatusSection id={id} testId={id} title={<>
+      <Icon name={icon} className="mr-2 inline-block size-4 align-text-bottom" />
+      {title}
+    </>}>
       {children}
-    </section>
+    </WorkStatusSection>
   );
 }
 
@@ -79,5 +79,5 @@ const statusKeys = {
 
 export function RecordedStatus({ status }: { readonly status: keyof typeof statusKeys }) {
   const { t } = useI18n();
-  return <span data-recorded-status={status} className="shrink-0 typography-meta text-muted-foreground">{t(statusKeys[status])}</span>;
+return <span data-recorded-status={status} className="shrink-0"><WorkStatusValue tone="muted">{t(statusKeys[status])}</WorkStatusValue></span>;
 }

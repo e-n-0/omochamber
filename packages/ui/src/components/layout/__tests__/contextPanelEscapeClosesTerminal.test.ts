@@ -9,43 +9,79 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { act, createElement } from 'react';
+import { mount } from '../../../omo/chat/chatTestFixture';
+import { ContextPanelFrame } from '../ContextPanelFrame';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const contextPanelSource = readFileSync(join(__dirname, '..', 'ContextPanel.tsx'), 'utf-8');
 const mobileWorkspaceDrawerSource = readFileSync(
   join(__dirname, '..', '..', '..', 'apps', 'MobileWorkspaceDrawer.tsx'),
   'utf-8',
 );
 
 describe('issue #2644: Escape in terminal must not close the context panel', () => {
-  test('the context panel captures Escape at the panel level', () => {
-    expect(contextPanelSource).toContain('onKeyDownCapture={handlePanelKeyDownCapture}');
-  });
+  for (const [owner, marker, value] of [
+    ['original', 'data-terminal-owner', 'main'],
+    ['native', 'data-oc-escape-owner', 'terminal'],
+  ] as const) {
+    test(`Escape in the ${owner} terminal reaches its bubble listener without being prevented`, async () => {
+      // Given the real shared frame and a nested terminal input.
+      let closes = 0;
+      const bubbles: Array<{ key: string; defaultPrevented: boolean }> = [];
+      const view = await mount(createElement(ContextPanelFrame, {
+        scopeKey: '/project:terminal', open: true, expanded: false, widthFraction: 0.5,
+        onWidthChange: () => {}, onClose: () => { closes += 1; }, header: null,
+        children: createElement('div', { [marker]: value, 'data-testid': 'terminal' },
+          createElement('textarea')),
+      }));
+      try {
+        const terminal = view.host.querySelector('[data-testid="terminal"]');
+        const input = view.host.querySelector('textarea');
+        if (!(terminal instanceof HTMLElement) || !(input instanceof HTMLTextAreaElement)) {
+          throw new Error('Missing terminal fixture');
+        }
+        terminal.addEventListener('keydown', (event) => {
+          bubbles.push({ key: event.key, defaultPrevented: event.defaultPrevented });
+        });
 
-  test('the capture handler skips closing when the event target is inside the terminal', () => {
-    const start = contextPanelSource.indexOf('const handlePanelKeyDownCapture = React.useCallback(');
-    expect(start).toBeGreaterThan(-1);
-    const end = contextPanelSource.indexOf('}, [handleClose]);', start);
-    expect(end).toBeGreaterThan(start);
-    const handler = contextPanelSource.slice(start, end);
+        // When a cancelable Escape travels through the frame's capture handler.
+        const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        await act(async () => { input.dispatchEvent(event); });
 
-    expect(handler).toContain("event.key !== 'Escape'");
-    expect(handler).toContain('isTerminalEventTarget(event.target)');
-    expect(handler).toContain('event.preventDefault()');
-    expect(handler).toContain('event.stopPropagation()');
-    expect(handler).toContain('handleClose()');
+        // Then terminal bubble delivery and the original default state are preserved.
+        expect(bubbles).toEqual([{ key: 'Escape', defaultPrevented: false }]);
+        expect(event.defaultPrevented).toBe(false);
+        expect(closes).toBe(0);
+      } finally {
+        await view.cleanup();
+      }
+    });
+  }
 
-    // Guard must return before preventDefault/stopPropagation so the terminal input's
-    // bubble-phase keydown listener can forward Escape to the PTY.
-    const guardIndex = handler.indexOf('isTerminalEventTarget(event.target)');
-    const preventIndex = handler.indexOf('event.preventDefault()');
-    expect(guardIndex).toBeGreaterThan(-1);
-    expect(preventIndex).toBeGreaterThan(guardIndex);
-  });
+  test('Escape on non-terminal chrome closes once in capture before bubble delivery', async () => {
+    // Given the real shared frame with a non-terminal header button.
+    const calls: string[] = [];
+    const view = await mount(createElement(ContextPanelFrame, {
+      scopeKey: '/project:files', open: true, expanded: false, widthFraction: 0.5,
+      onWidthChange: () => {}, onClose: () => { calls.push('closed'); },
+      header: createElement('button', { type: 'button' }, 'Files'), children: null,
+    }));
+    try {
+      const button = view.host.querySelector('button');
+      if (!(button instanceof HTMLButtonElement)) throw new Error('Missing panel chrome fixture');
+      button.addEventListener('keydown', () => { calls.push('chrome-bubble'); });
+      view.host.addEventListener('keydown', () => { calls.push('ancestor-bubble'); });
 
-  test('ContextPanel imports the shared terminal focus helper', () => {
-    expect(contextPanelSource).toContain("from '@/lib/terminalFocus'");
-    expect(contextPanelSource).toContain('isTerminalEventTarget');
+      // When Escape is dispatched from chrome below the panel capture boundary.
+      const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+      await act(async () => { button.dispatchEvent(event); });
+
+      // Then capture closes exactly once and consumes Escape before any bubble listener.
+      expect(calls).toEqual(['closed']);
+      expect(event.defaultPrevented).toBe(true);
+    } finally {
+      await view.cleanup();
+    }
   });
 
   test('mobile drawer keeps its terminal Escape exception', () => {
