@@ -34,6 +34,7 @@ function fixture() {
   const commands: CommandEnvelope[] = [];
   const workspaceReads: string[] = [];
   const attached: string[] = [];
+  const inventoryReads: string[] = [];
   const streams = new Map<string, ReadableStreamDefaultController<Uint8Array>>();
   const snapshots = new Map<string, ReturnType<typeof nativeSnapshot>>();
   const createStarted = deferred<void>();
@@ -55,6 +56,7 @@ function fixture() {
         projects.push(project);
         return Response.json(project);
       }
+      inventoryReads.push('projects');
       return Response.json(projects, { status: projectStatus });
     }
     if (route.startsWith('/api/omo/projects/')) {
@@ -64,7 +66,10 @@ function fixture() {
       return Response.json(project);
     }
     if (route === '/api/omo/sessions') {
-      if (options?.method !== 'POST') return Response.json(sessions, { status: sessionStatus });
+      if (options?.method !== 'POST') {
+        inventoryReads.push('sessions');
+        return Response.json(sessions, { status: sessionStatus });
+      }
       const input = createSessionSchema.parse(JSON.parse(String(options.body)));
       creates.push(input);
       if (deferCreation) { createStarted.resolve(); return creation.promise; }
@@ -143,7 +148,7 @@ function fixture() {
     await act(async () => { stream.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`)); await received; });
   }
   return {
-    client, store, projects, sessions, creates, commands, workspaceReads, attached, createStarted, creation,
+    client, store, projects, sessions, creates, commands, workspaceReads, attached, inventoryReads, createStarted, creation,
     deferCreation: () => { deferCreation = true; },
     failProjects: () => { projectStatus = 503; },
     failSessions: () => { sessionStatus = 503; },
@@ -188,6 +193,24 @@ test('explicit New session creates once in the registered worktree and selects n
   } finally { await view.cleanup(); await h.cleanup(); }
 });
 
+for (const { selector, projectId, directory } of [
+  { selector: '[data-native-project="project-b"] button[aria-label="New session"]', projectId: 'project-b', directory: '/other' },
+  { selector: '[data-native-project="project-a"] button[aria-label="New session in worktree"]', projectId: 'project-a', directory: '/worktree' },
+]) test(`original scoped create button targets ${directory} rather than the selected scope`, async () => {
+  const h = fixture();
+  const view = await mount(<OmoApp client={h.client} store={h.store} />);
+  try {
+    await click('[data-session-key="chat-a"]');
+    await click(selector);
+    expect(h.creates).toHaveLength(1);
+    expect(h.creates[0].projectId).toBe(projectId);
+    expect(h.creates[0].worktreePath).toBe(directory === '/worktree' ? directory : undefined);
+    expect(h.store.getState().selectedSessionKey).toBe('new-session');
+    expect(h.sessions.find((session) => session.sessionKey === 'new-session')?.directory).toBe(directory);
+    expect(view.host.querySelector('[data-testid="omo-composer"]')).not.toBeNull();
+  } finally { await view.cleanup(); await h.cleanup(); }
+});
+
 test('directory selection clears chat without rewriting an existing native session cwd', async () => {
   const h = fixture();
   const view = await mount(<OmoApp client={h.client} store={h.store} />);
@@ -202,21 +225,25 @@ test('directory selection clears chat without rewriting an existing native sessi
   } finally { await view.cleanup(); await h.cleanup(); }
 });
 
-test('late creation completion stays in its captured directory after the user changes projects', async () => {
+test('late scoped creation completion stays in its captured directory after the user changes projects', async () => {
   const h = fixture();
   h.deferCreation();
   const view = await mount(<OmoApp client={h.client} store={h.store} />);
   try {
-    await click('[data-testid="omo-new-session"]');
+    const createSelector = '[data-native-project="project-a"] button[aria-label="New session in worktree"]';
+    await click(createSelector);
     await h.createStarted.promise;
+    await click(createSelector);
     await click('[data-native-project="project-b"] button');
     await act(async () => { h.creation.resolve(Response.json({
-      sessionKey: 'late', durableSessionId: 'late-durable', directory: '/workspace',
+      sessionKey: 'late', durableSessionId: 'late-durable', directory: '/worktree',
       name: null, ownership: 'hosted', connection: 'connected',
     })); });
     expect(view.host.querySelector('[data-testid="omo-chat-empty"]')).not.toBeNull();
     expect(h.attached).toHaveLength(0);
     expect(h.creates).toHaveLength(1);
+    expect(h.creates[0].worktreePath).toBe('/worktree');
+    expect(view.host.querySelector('[data-native-project="project-b"]')?.getAttribute('data-selected')).toBe('true');
   } finally { await view.cleanup(); await h.cleanup(); }
 });
 
@@ -535,14 +562,11 @@ test('failed inventory reads preserve project and session rows instead of author
   const h = fixture();
   const view = await mount(<OmoApp client={h.client} store={h.store} />);
   try {
+    const reads = h.inventoryReads.length;
     h.failProjects();
     h.failSessions();
-    const projectRefresh = view.host.querySelector('[data-testid="omo-project-sidebar"] button');
-    assert(projectRefresh instanceof HTMLElement);
-    await act(async () => { projectRefresh.click(); });
-    const refresh = view.host.querySelector('[data-testid="omo-session-sidebar"] button');
-    assert(refresh instanceof HTMLElement);
-    await act(async () => refresh.click());
+    await click('[data-testid="omo-project-sidebar"] button[aria-label="Refresh"]');
+    expect(h.inventoryReads.slice(reads).sort()).toEqual(['projects', 'sessions']);
     expect(view.host.querySelectorAll('[data-native-project]')).toHaveLength(2);
     expect(view.host.querySelectorAll('[data-session-key]')).toHaveLength(3);
     expect(view.host.querySelectorAll('[role="alert"]').length).toBeGreaterThan(0);

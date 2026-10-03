@@ -259,21 +259,22 @@ function NativeWorkspace({ client, store }: { readonly client: NativeClient; rea
     previousScope.current = scope;
   }, [scope, sessionKey, sessions]);
   const selectDirectory = (project: NativeProject, directory: string) => {
-    if (scope?.projectId === project.id && scope.directory === directory) return;
+    if (scopeRef.current?.projectId === project.id && scopeRef.current.directory === directory) return;
+    scopeRef.current = { projectId: project.id, directory };
     setSessionKey(null);
-    setScope({ projectId: project.id, directory });
+    setScope(scopeRef.current);
     setOperationError(null);
   };
   const selectSession = (session: SessionSummary) => {
     const selectedProject = projects.find((item) => [item.path, ...(item.worktreePaths ?? [])].includes(session.directory));
-    setScope(selectedProject ? { projectId: selectedProject.id, directory: session.directory } : null);
+    scopeRef.current = selectedProject ? { projectId: selectedProject.id, directory: session.directory } : null;
+    setScope(scopeRef.current);
     setSessionKey(session.sessionKey);
     setMobileNavigationOpen(false);
     setOperationError(null);
     void store.selectSession(session.sessionKey);
   };
-  const create = async () => {
-    const captured = scopeRef.current;
+  const create = async (captured = scopeRef.current) => {
     if (!captured || creatingRef.current) return;
     const project = projects.find((item) => item.id === captured.projectId);
     if (!project || ![project.path, ...(project.worktreePaths ?? [])].includes(captured.directory)) return;
@@ -327,7 +328,10 @@ function NativeWorkspace({ client, store }: { readonly client: NativeClient; rea
             layout.update({ ...preferences, navigationWidth: Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, next)) });
           } }}>
         <ProjectSidebar projects={projects} projectId={scope?.projectId ?? null} directory={scope?.directory ?? null}
-          loading={projectsLoading} error={projectsError} onSelect={selectDirectory} onRefresh={() => { void refreshProjects(); }}
+          loading={projectsLoading} error={projectsError} onSelect={selectDirectory} onRefresh={() => {
+            void refreshProjects();
+            void refreshSessions();
+          }}
           onAdd={async (input) => {
             const added = await client.addProject(input);
             projectsRevision.current += 1;
@@ -342,7 +346,11 @@ function NativeWorkspace({ client, store }: { readonly client: NativeClient; rea
           renderNavigation={(editProject) => <NativeNavigation projects={projects} projectId={scope?.projectId ?? null}
             directory={scope?.directory ?? null} onProjectSelect={selectDirectory} sessions={sessions} store={store}
             sessionKey={sessionKey} loading={sessionsLoading} error={sessionsError} creating={creating}
-            canCreate={Boolean(project && status?.available)} onCreate={() => { void create(); }} onSelect={selectSession}
+            canCreate={Boolean(status?.available)} onCreate={() => { void create(); }} onSelect={selectSession}
+            onCreateInDirectory={(item, directory) => {
+              selectDirectory(item, directory);
+              void create({ projectId: item.id, directory });
+            }}
             onRefresh={() => { void refreshSessions(); }} showCreate={false}
             projectActions={(item) => <DropdownMenuItem onSelect={() => editProject(item)} data-project-rename={item.id}>
               <Icon name="edit" className="size-4" />{t('mobile.sessions.editProjectAria', { label: item.name })}
